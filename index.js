@@ -8,6 +8,9 @@ console.log('2. express caricato');
 const { bot } = require('./src/telegram/bot');
 console.log('3. bot caricato');
 
+const cron = require('node-cron');
+console.log('4. cron caricato');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -29,10 +32,18 @@ app.post('/webhook', async (req, res) => {
     }
 });
 
-console.log('4. app configurata');
+console.log('5. app configurata');
+
+// Scheduler vuoto (solo log)
+cron.schedule('* * * * *', () => {
+    console.log('⏰ Scheduler tick (ogni minuto)');
+}, {
+    timezone: 'Europe/Rome'
+});
+console.log('6. Scheduler avviato');
 
 const server = app.listen(PORT, async () => {
-    console.log(`5. Server in ascolto sulla porta ${PORT}`);
+    console.log(`7. Server in ascolto sulla porta ${PORT}`);
 
     const webhookUrl = process.env.RAILWAY_STATIC_URL 
         ? `https://${process.env.RAILWAY_STATIC_URL}/webhook`
@@ -41,15 +52,15 @@ const server = app.listen(PORT, async () => {
     if (webhookUrl) {
         try {
             await bot.api.setWebhook(webhookUrl);
-            console.log(`6. Webhook impostato su ${webhookUrl}`);
+            console.log(`8. Webhook impostato su ${webhookUrl}`);
         } catch (error) {
             console.error('❌ Errore webhook:', error);
         }
     } else {
-        console.warn('6. RAILWAY_STATIC_URL non definita');
+        console.warn('8. RAILWAY_STATIC_URL non definita');
     }
 
-    console.log('7. Avvio completato, in attesa...');
+    console.log('9. Avvio completato, in attesa...');
 });
 
 // Keepalive
@@ -74,4 +85,4 @@ process.on('unhandledRejection', (reason) => {
     console.error('❌ Promise non gestita:', reason);
 });
 
-console.log('8. INDEX.js completamente caricato');
+console.log('10. INDEX.js completamente caricato');
