@@ -72,12 +72,18 @@ const server = app.listen(PORT, async () => {
     console.log('7. Avvio completato, in attesa...');
 });
 
-// SCHEDULER IN MODALITÀ TEST (SOLO LOG)
-cron.schedule('*/5 * * * *', () => {
-    console.log('⏰ Scheduler test: passati 5 minuti');
-    // Non chiamiamo ancora processaProssimoLink
+// SCHEDULER DI PUBBLICAZIONE (ogni 2 ore dalle 8:00 alle 22:00)
+cron.schedule('0 8-22/2 * * *', async () => {
+    const ora = new Date().getHours();
+    console.log(`⏰ Esecuzione programmata delle ${ora}:00`);
+    try {
+        const risultato = await processaProssimoLink();
+        console.log(`📦 Risultato pubblicazione: ${risultato ? 'successo' : 'nessun link'}`);
+    } catch (error) {
+        console.error('❌ Errore nello scheduler:', error);
+    }
 }, { timezone: 'Europe/Rome' });
-console.log('✅ Scheduler test avviato (ogni 5 minuti)');
+console.log('✅ Scheduler di pubblicazione avviato (ogni 2 ore, 8:00-22:00)');
 
 // Keepalive
 setInterval(() => {
