@@ -8,7 +8,12 @@ console.log('2. express caricato');
 const { bot } = require('./src/telegram/bot');
 console.log('3. bot caricato');
 
+const { caricaLinkDaSheets } = require('./src/sheets/reader');
+console.log('3a. sheets reader caricato');
+
 const cron = require('node-cron');
+const { processaProssimoLink } = require('./processa-links');
+console.log('4a. processa-links caricato');
 console.log('4. cron caricato');
 
 const app = express();
@@ -86,3 +91,4 @@ process.on('unhandledRejection', (reason) => {
 });
 
 console.log('10. INDEX.js completamente caricato');
+
