@@ -8,12 +8,6 @@ console.log('2. express caricato');
 const { bot } = require('./src/telegram/bot');
 console.log('3. bot caricato');
 
-const { processaProssimoLink } = require('./processa-links');
-console.log('4. processa-links caricato');
-
-const cron = require('node-cron');
-console.log('5. cron caricato');
-
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -35,21 +29,10 @@ app.post('/webhook', async (req, res) => {
     }
 });
 
-app.get('/pubblica', async (req, res) => {
-    console.log('📢 Richiesta pubblicazione manuale');
-    try {
-        const risultato = await processaProssimoLink();
-        res.json({ successo: risultato });
-    } catch (error) {
-        console.error('❌ Errore pubblicazione:', error);
-        res.status(500).json({ errore: error.message });
-    }
-});
-
-console.log('6. app configurata');
+console.log('4. app configurata');
 
 const server = app.listen(PORT, async () => {
-    console.log(`7. Server in ascolto sulla porta ${PORT}`);
+    console.log(`5. Server in ascolto sulla porta ${PORT}`);
 
     const webhookUrl = process.env.RAILWAY_STATIC_URL 
         ? `https://${process.env.RAILWAY_STATIC_URL}/webhook`
@@ -58,28 +41,16 @@ const server = app.listen(PORT, async () => {
     if (webhookUrl) {
         try {
             await bot.api.setWebhook(webhookUrl);
-            console.log(`8. Webhook impostato su ${webhookUrl}`);
+            console.log(`6. Webhook impostato su ${webhookUrl}`);
         } catch (error) {
             console.error('❌ Errore webhook:', error);
         }
     } else {
-        console.warn('8. RAILWAY_STATIC_URL non definita');
+        console.warn('6. RAILWAY_STATIC_URL non definita');
     }
 
-    console.log('9. Avvio completato, in attesa...');
+    console.log('7. Avvio completato, in attesa...');
 });
-
-// Scheduler
-cron.schedule('0 8-22/2 * * *', async () => {
-    const ora = new Date().getHours();
-    console.log(`⏰ Esecuzione programmata delle ${ora}:00`);
-    try {
-        await processaProssimoLink();
-    } catch (error) {
-        console.error('❌ Errore scheduler:', error);
-    }
-}, { timezone: 'Europe/Rome' });
-console.log('10. Scheduler avviato');
 
 // Keepalive
 setInterval(() => {
@@ -103,4 +74,4 @@ process.on('unhandledRejection', (reason) => {
     console.error('❌ Promise non gestita:', reason);
 });
 
-console.log('11. INDEX.js completamente caricato');
+console.log('8. INDEX.js completamente caricato');
