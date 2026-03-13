@@ -1,0 +1,6 @@
+node_modules/
+.env
+pubblicati.txt
+log.txt
+offerte.txt
+.DS_Store
