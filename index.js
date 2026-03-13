@@ -11,10 +11,11 @@ console.log('3. bot caricato');
 const { caricaLinkDaSheets } = require('./src/sheets/reader');
 console.log('3a. sheets reader caricato');
 
-const cron = require('node-cron');
 const { processaProssimoLink } = require('./processa-links');
-console.log('4a. processa-links caricato');
-console.log('4. cron caricato');
+console.log('3b. processa-links caricato');
+
+const cron = require('node-cron');
+console.log('3c. cron caricato');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -37,18 +38,21 @@ app.post('/webhook', async (req, res) => {
     }
 });
 
-console.log('5. app configurata');
-
-// Scheduler vuoto (solo log)
-cron.schedule('* * * * *', () => {
-    console.log('⏰ Scheduler tick (ogni minuto)');
-}, {
-    timezone: 'Europe/Rome'
+app.get('/pubblica', async (req, res) => {
+    console.log('📢 Richiesta pubblicazione manuale');
+    try {
+        const risultato = await processaProssimoLink();
+        res.json({ successo: risultato });
+    } catch (error) {
+        console.error('❌ Errore pubblicazione:', error);
+        res.status(500).json({ errore: error.message });
+    }
 });
-console.log('6. Scheduler avviato');
+
+console.log('4. app configurata');
 
 const server = app.listen(PORT, async () => {
-    console.log(`7. Server in ascolto sulla porta ${PORT}`);
+    console.log(`5. Server in ascolto sulla porta ${PORT}`);
 
     const webhookUrl = process.env.RAILWAY_STATIC_URL 
         ? `https://${process.env.RAILWAY_STATIC_URL}/webhook`
@@ -57,16 +61,23 @@ const server = app.listen(PORT, async () => {
     if (webhookUrl) {
         try {
             await bot.api.setWebhook(webhookUrl);
-            console.log(`8. Webhook impostato su ${webhookUrl}`);
+            console.log(`6. Webhook impostato su ${webhookUrl}`);
         } catch (error) {
             console.error('❌ Errore webhook:', error);
         }
     } else {
-        console.warn('8. RAILWAY_STATIC_URL non definita');
+        console.warn('6. RAILWAY_STATIC_URL non definita');
     }
 
-    console.log('9. Avvio completato, in attesa...');
+    console.log('7. Avvio completato, in attesa...');
 });
+
+// SCHEDULER IN MODALITÀ TEST (SOLO LOG)
+cron.schedule('*/5 * * * *', () => {
+    console.log('⏰ Scheduler test: passati 5 minuti');
+    // Non chiamiamo ancora processaProssimoLink
+}, { timezone: 'Europe/Rome' });
+console.log('✅ Scheduler test avviato (ogni 5 minuti)');
 
 // Keepalive
 setInterval(() => {
@@ -90,5 +101,4 @@ process.on('unhandledRejection', (reason) => {
     console.error('❌ Promise non gestita:', reason);
 });
 
-console.log('10. INDEX.js completamente caricato');
-
+console.log('8. INDEX.js completamente caricato');
