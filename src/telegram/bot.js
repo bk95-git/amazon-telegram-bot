@@ -10,7 +10,7 @@ async function pubblicaOfferta(offerta, èErrore) {
     const template = await generaTemplate(offerta, èErrore);
     
     const caption = `
-<b>${èErrore ? '🔥 PROBABILE ERRORE 🔥' : '🌸 OFFERTA DI PRIMAVERA 🌸'}</b>
+<b>${èErrore ? '🔥 PROBABILE ERRORE 🔥' : '⚡ OFFERTA SPECIALE ⚡'}</b>
 
 ${offerta.titolo}
 
