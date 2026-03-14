@@ -1,3 +1,5 @@
+console.log('📦 DATI RICEVUTI in pubblicaOfferta:', JSON.stringify(offerta));
+
 const { Bot, InputFile } = require('grammy');
 const { generaTemplate } = require('../templates/generator');
 
