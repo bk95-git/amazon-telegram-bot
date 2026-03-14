@@ -4,7 +4,7 @@ const { generaTemplate } = require('../templates/generator');
 const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN);
 
 async function pubblicaOfferta(offerta, èErrore) {
-  console.log('📦 DATI RICEVUTI in pubblicaOfferta:', JSON.stringify(offerta)); // <-- LOG SPOSTATO QUI
+  console.log('📦 DATI RICEVUTI in pubblicaOfferta:', JSON.stringify(offerta));
   try {
     console.log('📤 Pubblicazione su Telegram...');
     

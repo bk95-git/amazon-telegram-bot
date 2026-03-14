@@ -11,9 +11,7 @@ function log(messaggio) {
     const riga = `${new Date().toISOString()} | ${messaggio}\n`;
     try {
         fs.appendFileSync(FILE_LOG, riga);
-    } catch (e) {
-        // Ignora errori di scrittura (su Railway potrebbe non essere permesso)
-    }
+    } catch (e) {}
     console.log(messaggio);
 }
 
@@ -21,7 +19,6 @@ async function processaProssimoLink() {
     log('🔄 Controllo prossimo link da Google Sheets...');
     
     try {
-        // Legge il prossimo link dal foglio
         const risultato = await caricaLinkDaSheets();
         
         if (!risultato || !risultato.link) {
@@ -33,16 +30,20 @@ async function processaProssimoLink() {
         log(`🔗 Elaboro: ${link}`);
         
         const dati = await estraiDatiDaLink(link);
-        
-        // 🔍 LOG AGGIUNTO: vediamo cosa arriva dallo scraper
         console.log('📦 DATI APPENA ESTRATTI (in processa-links):', JSON.stringify(dati, null, 2));
         
         if (!dati || !dati.prezzo || !dati.inStock) {
             log(`❌ Dati non validi o prodotto non disponibile per ${link}`);
-            try {
-                risultato.row.set('Pubblicato', 'ERRORE');
-                await risultato.row.save();
-            } catch (e) {}
+            await risultato.row.set('Pubblicato', 'ERRORE');
+            await risultato.row.save();
+            return false;
+        }
+        
+        // Verifica che il prezzo originale sia valido (non null, non placeholder)
+        if (!dati.prezzoOriginale || dati.prezzoOriginale <= 0 || dati.prezzoOriginale > 5000) {
+            log(`❌ Prezzo originale non valido (${dati.prezzoOriginale}), segno come ERRORE`);
+            await risultato.row.set('Pubblicato', 'ERRORE');
+            await risultato.row.save();
             return false;
         }
         
@@ -66,10 +67,8 @@ async function processaProssimoLink() {
             return true;
         } else {
             log(`❌ Pubblicazione fallita per ${link}`);
-            try {
-                risultato.row.set('Pubblicato', 'ERRORE');
-                await risultato.row.save();
-            } catch (e) {}
+            await risultato.row.set('Pubblicato', 'ERRORE');
+            await risultato.row.save();
             return false;
         }
         

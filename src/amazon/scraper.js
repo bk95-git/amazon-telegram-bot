@@ -27,7 +27,7 @@ async function estraiDatiDaLink(url) {
 
             const titolo = document.querySelector('#productTitle')?.textContent.trim() || '';
 
-            // Prezzo attuale
+            // --- PREZZO ATTUALE ---
             let prezzo = null;
             const intero = document.querySelector('.a-price-whole')?.textContent.replace(/[.,]/g, '');
             const frazione = document.querySelector('.a-price-fraction')?.textContent;
@@ -39,10 +39,11 @@ async function estraiDatiDaLink(url) {
                 if (buyPrice) prezzo = parsePrice(buyPrice);
             }
 
-            // Prezzo originale con log
+            // --- PREZZO ORIGINALE (ricerca avanzata con log) ---
             let prezzoOriginale = null;
             let fonte = null;
 
+            // 1. Selettori comuni per prezzo barrato
             const selettori = [
                 { sel: '.a-price.a-text-price span.a-offscreen', name: 'barrato' },
                 { sel: '.priceBlockStrikePriceString', name: 'strike' },
@@ -63,6 +64,7 @@ async function estraiDatiDaLink(url) {
                 }
             }
 
+            // 2. Tabella dettagli (Prezzo consigliato)
             if (!prezzoOriginale) {
                 const rows = document.querySelectorAll('#productDetails_detailBullets_sections1 tr, .a-normal tr');
                 for (let row of rows) {
@@ -82,6 +84,7 @@ async function estraiDatiDaLink(url) {
                 }
             }
 
+            // 3. JSON-LD (dati strutturati)
             if (!prezzoOriginale) {
                 const script = document.querySelector('script[type="application/ld+json"]');
                 if (script) {
@@ -91,12 +94,16 @@ async function estraiDatiDaLink(url) {
                             if (data.offers.highPrice && isPrezzoValido(data.offers.highPrice)) {
                                 prezzoOriginale = data.offers.highPrice;
                                 fonte = 'json-ld high';
+                            } else if (data.offers.price && isPrezzoValido(data.offers.price)) {
+                                // A volte il prezzo attuale è in offers.price, ma il listPrice potrebbe essere altrove
+                                // Qui potremmo fare una stima, ma è meglio lasciare null
                             }
                         }
                     } catch (e) {}
                 }
             }
 
+            // 4. Ricerca testuale nel corpo della pagina
             if (!prezzoOriginale) {
                 const bodyText = document.body.innerText;
                 const match = bodyText.match(/(?:Prezzo consigliato|List Price|Prezzo di listino)[:\s]*([€£$]?\s*[\d.,]+)/i);
@@ -112,15 +119,25 @@ async function estraiDatiDaLink(url) {
 
             // Se non trovato, lasciamo null (non usiamo default)
 
+            // --- SCONTO ---
             let sconto = 0;
             if (prezzoOriginale && prezzo && prezzoOriginale > prezzo) {
                 sconto = Math.round(((prezzoOriginale - prezzo) / prezzoOriginale) * 100);
             }
 
+            // --- IMMAGINE ---
             const immagine = document.querySelector('#landingImage')?.src || '';
-            const asin = document.querySelector('meta[name="asin"]')?.content || window.location.pathname.match(/\/dp\/([A-Z0-9]{10})/)?.[1] || '';
+
+            // --- ASIN ---
+            const asin = document.querySelector('meta[name="asin"]')?.content || 
+                         window.location.pathname.match(/\/dp\/([A-Z0-9]{10})/)?.[1] || '';
+
+            // --- DISPONIBILITÀ ---
             const disponibilita = document.querySelector('#availability span')?.textContent.trim() || '';
-            const inStock = !disponibilita.toLowerCase().includes('non disponibile') && !disponibilita.toLowerCase().includes('esaurito');
+            const inStock = !disponibilita.toLowerCase().includes('non disponibile') && 
+                           !disponibilita.toLowerCase().includes('esaurito');
+
+            console.log(`🔍 Fonte prezzo originale: ${fonte}, valore: ${prezzoOriginale}`);
 
             return {
                 titolo,
