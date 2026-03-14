@@ -34,10 +34,11 @@ async function processaProssimoLink() {
         
         const dati = await estraiDatiDaLink(link);
         
+        // 🔍 LOG AGGIUNTO: vediamo cosa arriva dallo scraper
+        console.log('📦 DATI APPENA ESTRATTI (in processa-links):', JSON.stringify(dati, null, 2));
+        
         if (!dati || !dati.prezzo || !dati.inStock) {
             log(`❌ Dati non validi o prodotto non disponibile per ${link}`);
-            // Segna comunque come pubblicato per non bloccarlo?
-            // Decidiamo di segnarlo come "ERRORE" per non riprocessarlo
             try {
                 risultato.row.set('Pubblicato', 'ERRORE');
                 await risultato.row.save();
@@ -49,8 +50,8 @@ async function processaProssimoLink() {
             asin: dati.asin,
             titolo: dati.titolo,
             prezzo: dati.prezzo,
-            prezzoOriginale: dati.prezzoOriginale || dati.prezzo * 1.3,
-            sconto: dati.sconto || 0,
+            prezzoOriginale: dati.prezzoOriginale,
+            sconto: dati.sconto,
             link: link + `?tag=${process.env.AMAZON_PARTNER_TAG}`,
             immagine: dati.immagine,
             categoria: 'Manuale'
@@ -65,7 +66,6 @@ async function processaProssimoLink() {
             return true;
         } else {
             log(`❌ Pubblicazione fallita per ${link}`);
-            // Segna come "ERRORE" per non riprocessarlo
             try {
                 risultato.row.set('Pubblicato', 'ERRORE');
                 await risultato.row.save();
