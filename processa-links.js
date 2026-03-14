@@ -35,7 +35,7 @@ async function processaProssimoLink() {
         const dati = await estraiDatiDaLink(link);
         
         // 🔍 LOG AGGIUNTO: vediamo cosa arriva dallo scraper
-        console.log('📦 DATI APPENA ESTRATTI (in processa-links):', JSON.stringify(dati, null, 2));
+        console.log('📦 DAT APPENA ESTRATTI (in processa-links):', JSON.stringify(dati, null, 2));
         
         if (!dati || !dati.prezzo || !dati.inStock) {
             log(`❌ Dati non validi o prodotto non disponibile per ${link}`);
