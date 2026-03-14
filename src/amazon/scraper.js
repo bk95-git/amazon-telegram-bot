@@ -2,81 +2,60 @@ const puppeteer = require('puppeteer');
 
 async function estraiDatiDaLink(url) {
     console.log(`🔍 Estraggo dati da: ${url}`);
-    
-    const browser = await puppeteer.launch({ 
-        args: ['--no-sandbox', '--disable-setuid-sandbox'] 
-    });
-    
+    const browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
     const page = await browser.newPage();
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
     
     try {
         await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
         await page.waitForSelector('#productTitle', { timeout: 10000 });
-        
+
         const dati = await page.evaluate(() => {
             function parsePrice(testo) {
                 if (!testo) return null;
-                // Rimuove tutto tranne cifre, virgola e punto, poi sostituisce virgola con punto
                 const match = testo.replace(/[^\d,]/g, '').replace(',', '.').match(/(\d+(?:\.\d+)?)/);
                 return match ? parseFloat(match[1]) : null;
             }
 
-            // --- PREZZO ATTUALE ---
+            const titolo = document.querySelector('#productTitle')?.textContent.trim() || '';
+
+            // Prezzo attuale
             let prezzo = null;
-            // Metodo principale: prezzo intero + frazione
             const intero = document.querySelector('.a-price-whole')?.textContent.replace(/[.,]/g, '');
             const frazione = document.querySelector('.a-price-fraction')?.textContent;
-            if (intero && frazione) {
-                prezzo = parseFloat(intero + '.' + frazione);
-            }
-            // Fallback: buy box
+            if (intero && frazione) prezzo = parseFloat(intero + '.' + frazione);
             if (!prezzo) {
                 const buyPrice = document.querySelector('#price_inside_buybox')?.textContent;
                 if (buyPrice) prezzo = parsePrice(buyPrice);
             }
-            // Altro fallback
-            if (!prezzo) {
-                const priceEl = document.querySelector('.a-price .a-offscreen');
-                if (priceEl) prezzo = parsePrice(priceEl.textContent);
-            }
 
-            // --- PREZZO ORIGINALE ---
+            // Prezzo originale - cerca in più selettori
             let prezzoOriginale = null;
-
-            // 1. Cerca nei dati strutturati JSON-LD (il più affidabile)
-            const scripts = document.querySelectorAll('script[type="application/ld+json"]');
-            for (let script of scripts) {
-                try {
-                    const data = JSON.parse(script.textContent);
-                    if (data.offers) {
-                        if (data.offers.highPrice) {
-                            prezzoOriginale = data.offers.highPrice;
-                            break;
-                        }
-                        if (data.offers.lowPrice && data.offers.highPrice) {
-                            prezzoOriginale = data.offers.highPrice;
-                            break;
-                        }
-                        // A volte il prezzo originale è in offers.price ma con contesto
+            const selettori = [
+                '.a-price.a-text-price span.a-offscreen',
+                '.priceBlockStrikePriceString',
+                '.a-text-price span.a-offscreen',
+                '#price_inside_buybox .a-text-price span'
+            ];
+            for (let sel of selettori) {
+                const el = document.querySelector(sel);
+                if (el) {
+                    const val = parsePrice(el.textContent);
+                    if (val && val > 0 && val < 5000) { // esclude placeholder 9999
+                        prezzoOriginale = val;
+                        break;
                     }
-                } catch (e) {}
+                }
             }
 
-            // 2. Se non trovato, cerca selettori comuni per prezzo barrato
+            // Se non trovato, cerca nella tabella dettagli
             if (!prezzoOriginale) {
-                const selettori = [
-                    '.a-price.a-text-price span.a-offscreen',
-                    '.priceBlockStrikePriceString',
-                    '.a-text-price span.a-offscreen',
-                    '.list-price',
-                    '.price3P'
-                ];
-                for (let sel of selettori) {
-                    const el = document.querySelector(sel);
-                    if (el) {
-                        const val = parsePrice(el.textContent);
-                        if (val && val > 0 && val < 10000 && (prezzo ? val > prezzo : true)) {
+                const rows = document.querySelectorAll('#productDetails_detailBullets_sections1 tr');
+                for (let row of rows) {
+                    const label = row.querySelector('th')?.textContent;
+                    if (label && (label.includes('Prezzo consigliato') || label.includes('List Price'))) {
+                        const val = parsePrice(row.querySelector('td')?.textContent);
+                        if (val && val > 0 && val < 5000) {
                             prezzoOriginale = val;
                             break;
                         }
@@ -84,70 +63,24 @@ async function estraiDatiDaLink(url) {
                 }
             }
 
-            // 3. Cerca nella tabella dettagli
-            if (!prezzoOriginale) {
-                const rows = document.querySelectorAll('#productDetails_detailBullets_sections1 tr, .a-normal tr');
-                for (let row of rows) {
-                    const label = row.querySelector('th')?.textContent;
-                    if (label && (label.includes('Prezzo consigliato') || label.includes('List Price') || label.includes('Prezzo di listino'))) {
-                        const value = row.querySelector('td')?.textContent;
-                        if (value) {
-                            const val = parsePrice(value);
-                            if (val && val > 0 && val < 10000) {
-                                prezzoOriginale = val;
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
+            // Se ancora non trovato, lascia null (nessun prezzo originale)
 
-            // 4. Cerca nel testo della pagina con regex mirata
-            if (!prezzoOriginale) {
-                const bodyText = document.body.innerText;
-                // Cerca "Prezzo consigliato: €XX,XX" o simili
-                const match = bodyText.match(/(?:Prezzo consigliato|List Price|Prezzo di listino)[:\s]*[€£$]?\s*([\d.,]+)/i);
-                if (match) {
-                    const val = parsePrice(match[1]);
-                    if (val && val > 0 && val < 10000) {
-                        prezzoOriginale = val;
-                    }
-                }
-            }
-
-            // Se ancora null, lascia null (non forziamo default)
-
-            // --- SCONTO ---
             let sconto = 0;
             if (prezzoOriginale && prezzo && prezzoOriginale > prezzo) {
                 sconto = Math.round(((prezzoOriginale - prezzo) / prezzoOriginale) * 100);
             }
 
-            // --- ALTRI DATI ---
-            const titolo = document.querySelector('#productTitle')?.textContent.trim() || '';
-            const immagine = document.querySelector('#landingImage')?.src || 
-                            document.querySelector('.imgTagWrapper img')?.src || '';
-            const asin = document.querySelector('meta[name="asin"]')?.content || 
-                         window.location.pathname.match(/\/dp\/([A-Z0-9]{10})/)?.[1] || '';
+            const immagine = document.querySelector('#landingImage')?.src || '';
+            const asin = document.querySelector('meta[name="asin"]')?.content || window.location.pathname.match(/\/dp\/([A-Z0-9]{10})/)?.[1] || '';
             const disponibilita = document.querySelector('#availability span')?.textContent.trim() || '';
-            const inStock = !disponibilita.toLowerCase().includes('non disponibile') && 
-                           !disponibilita.toLowerCase().includes('esaurito');
+            const inStock = !disponibilita.toLowerCase().includes('non disponibile') && !disponibilita.toLowerCase().includes('esaurito');
 
-            return {
-                titolo,
-                prezzo,
-                prezzoOriginale,
-                sconto,
-                immagine,
-                asin,
-                inStock
-            };
+            return { titolo, prezzo, prezzoOriginale, sconto, immagine, asin, inStock };
         });
-        
+
         await browser.close();
-        console.log('📦 Dati estratti finali:', JSON.stringify(dati, null, 2));
+        console.log('📦 Dati estratti:', JSON.stringify(dati, null, 2));
         return dati;
-        
     } catch (error) {
         console.error('❌ Errore scraping:', error.message);
         await browser.close();

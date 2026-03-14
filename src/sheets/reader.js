@@ -11,14 +11,13 @@ async function caricaLinkDaSheets() {
         });
         await doc.loadInfo();
         const sheet = doc.sheetsByIndex[0];
-        const rows = await sheet.getRows();
+        const rows = await sheet.getRows(); // rows è un array di oggetti con metodo get()
         console.log(`📄 Trovate ${rows.length} righe nel foglio`);
-        
-        for (let row of rows) {
-            // Usa row.get('NomeColonna') - assumendo che la colonna si chiami 'Link'
+
+        for (const row of rows) {
+            const pubblicato = row.get('Pubblicato'); // metodo get() funziona
             const link = row.get('Link');
-            const pubblicato = row.get('Pubblicato');
-            if (link && pubblicato !== 'SI') {
+            if ((pubblicato !== 'SI') && link) {
                 console.log(`✅ Trovato link da pubblicare: ${link}`);
                 return { link, row };
             }
@@ -27,21 +26,17 @@ async function caricaLinkDaSheets() {
         return null;
     } catch (error) {
         console.error('❌ Errore lettura Google Sheets:', error.message);
-        if (error.response) {
-            console.error('Dettaglio:', error.response.data);
-        }
+        if (error.response) console.error('Dettaglio:', error.response.data);
         return null;
     }
 }
 
-async function segnaComePubblicato(row, stato = 'SI') {
+async function segnaComePubblicato(row) {
     try {
-        row.set('Pubblicato', stato);
-        if (stato === 'SI') {
-            row.set('Data Pubblicazione', new Date().toLocaleString('it-IT'));
-        }
+        row.set('Pubblicato', 'SI');
+        row.set('Data Pubblicazione', new Date().toLocaleString('it-IT'));
         await row.save();
-        console.log(`✅ Riga segnata come ${stato}`);
+        console.log('✅ Riga segnata come pubblicata');
         return true;
     } catch (error) {
         console.error('❌ Errore aggiornamento riga:', error);

@@ -9,62 +9,32 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-app.get('/health', (req, res) => {
-    res.json({ status: 'OK', time: new Date().toISOString() });
-});
-
+app.get('/health', (req, res) => res.json({ status: 'OK', time: new Date().toISOString() }));
 app.post('/webhook', async (req, res) => {
-    try {
-        await bot.handleUpdate(req.body);
-        res.sendStatus(200);
-    } catch (error) {
-        console.error('❌ Errore webhook:', error);
-        res.sendStatus(500);
-    }
+    try { await bot.handleUpdate(req.body); res.sendStatus(200); }
+    catch (error) { console.error('❌ Errore webhook:', error); res.sendStatus(500); }
 });
-
 app.get('/pubblica', async (req, res) => {
-    try {
-        const risultato = await processaProssimoLink();
-        res.json({ successo: risultato });
-    } catch (error) {
-        res.status(500).json({ errore: error.message });
-    }
+    try { const risultato = await processaProssimoLink(); res.json({ successo: risultato }); }
+    catch (error) { res.status(500).json({ errore: error.message }); }
 });
 
 const server = app.listen(PORT, async () => {
     console.log(`🚀 Server avviato sulla porta ${PORT}`);
-
-    const webhookUrl = process.env.RAILWAY_STATIC_URL
-        ? `https://${process.env.RAILWAY_STATIC_URL}/webhook`
-        : null;
-
+    const webhookUrl = process.env.RAILWAY_STATIC_URL ? `https://${process.env.RAILWAY_STATIC_URL}/webhook` : null;
     if (webhookUrl) {
-        try {
-            await bot.api.setWebhook(webhookUrl);
-            console.log(`✅ Webhook impostato su ${webhookUrl}`);
-        } catch (error) {
-            console.error('❌ Errore impostazione webhook:', error);
-        }
-    } else {
-        console.warn('⚠️ RAILWAY_STATIC_URL non definita');
-    }
+        try { await bot.api.setWebhook(webhookUrl); console.log(`✅ Webhook impostato su ${webhookUrl}`); }
+        catch (error) { console.error('❌ Errore webhook:', error); }
+    } else console.warn('⚠️ RAILWAY_STATIC_URL non definita');
 });
 
 cron.schedule('0 8-22/2 * * *', async () => {
-    const ora = new Date().getHours();
-    console.log(`⏰ Esecuzione programmata delle ${ora}:00`);
-    try {
-        await processaProssimoLink();
-    } catch (error) {
-        console.error('❌ Errore scheduler:', error);
-    }
+    console.log(`⏰ Esecuzione programmata delle ${new Date().getHours()}:00`);
+    await processaProssimoLink();
 }, { timezone: 'Europe/Rome' });
 
-setInterval(() => {
-    console.log('💓 Keepalive', new Date().toISOString());
-}, 60000);
+setInterval(() => console.log('💓 Keepalive', new Date().toISOString()), 60000);
 
-process.on('SIGTERM', () => {
-    server.close(() => process.exit(0));
-});
+process.on('SIGTERM', () => { console.log('👋 Ricevuto SIGTERM, arresto...'); server.close(() => process.exit(0)); });
+process.on('uncaughtException', (err) => console.error('❌ Eccezione non catturata:', err));
+process.on('unhandledRejection', (reason) => console.error('❌ Promise non gestita:', reason));
