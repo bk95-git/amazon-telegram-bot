@@ -39,7 +39,7 @@ async function estraiDatiDaLink(url) {
                 if (buyPrice) prezzo = parsePrice(buyPrice);
             }
 
-            // Prezzo originale con tracciamento fonte
+            // Prezzo originale con log
             let prezzoOriginale = null;
             let fonte = null;
 
@@ -47,13 +47,14 @@ async function estraiDatiDaLink(url) {
                 { sel: '.a-price.a-text-price span.a-offscreen', name: 'barrato' },
                 { sel: '.priceBlockStrikePriceString', name: 'strike' },
                 { sel: '.a-text-price span.a-offscreen', name: 'text-price' },
-                { sel: '.price3P', name: 'price3P' },
+                { sel: '#price_inside_buybox .a-text-price span', name: 'buybox' },
                 { sel: '.list-price', name: 'list-price' }
             ];
             for (let s of selettori) {
                 const el = document.querySelector(s.sel);
                 if (el) {
                     const val = parsePrice(el.textContent);
+                    console.log(`🔍 Selettore ${s.name}: trovato ${val}`);
                     if (isPrezzoValido(val)) {
                         prezzoOriginale = val;
                         fonte = s.name;
@@ -70,6 +71,7 @@ async function estraiDatiDaLink(url) {
                         const value = row.querySelector('td')?.textContent;
                         if (value) {
                             const val = parsePrice(value);
+                            console.log(`🔍 Tabella dettagli: trovato ${val}`);
                             if (isPrezzoValido(val)) {
                                 prezzoOriginale = val;
                                 fonte = 'tabella';
@@ -89,9 +91,6 @@ async function estraiDatiDaLink(url) {
                             if (data.offers.highPrice && isPrezzoValido(data.offers.highPrice)) {
                                 prezzoOriginale = data.offers.highPrice;
                                 fonte = 'json-ld high';
-                            } else if (data.offers.price && isPrezzoValido(data.offers.price * 1.2)) {
-                                prezzoOriginale = data.offers.price * 1.2;
-                                fonte = 'json-ld stima';
                             }
                         }
                     } catch (e) {}
@@ -103,6 +102,7 @@ async function estraiDatiDaLink(url) {
                 const match = bodyText.match(/(?:Prezzo consigliato|List Price|Prezzo di listino)[:\s]*([€£$]?\s*[\d.,]+)/i);
                 if (match) {
                     const val = parsePrice(match[1]);
+                    console.log(`🔍 Testuale: trovato ${val}`);
                     if (isPrezzoValido(val)) {
                         prezzoOriginale = val;
                         fonte = 'testuale';
@@ -110,12 +110,7 @@ async function estraiDatiDaLink(url) {
                 }
             }
 
-            if (!prezzoOriginale && prezzo) {
-                prezzoOriginale = prezzo;
-                fonte = 'default';
-            }
-
-            console.log(`🔍 Fonte prezzo originale: ${fonte}, valore: ${prezzoOriginale}`);
+            // Se non trovato, lasciamo null (non usiamo default)
 
             let sconto = 0;
             if (prezzoOriginale && prezzo && prezzoOriginale > prezzo) {
@@ -139,7 +134,7 @@ async function estraiDatiDaLink(url) {
         });
         
         await browser.close();
-        console.log('📦 Dati estratti:', JSON.stringify(dati, null, 2));
+        console.log('📦 Dati estratti finali:', JSON.stringify(dati, null, 2));
         return dati;
         
     } catch (error) {
