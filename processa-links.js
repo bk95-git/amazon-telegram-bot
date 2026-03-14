@@ -20,7 +20,6 @@ async function processaProssimoLink() {
     
     try {
         const risultato = await caricaLinkDaSheets();
-        
         if (!risultato || !risultato.link) {
             log('📭 Nessun link disponibile nel foglio');
             return false;
@@ -34,16 +33,14 @@ async function processaProssimoLink() {
         
         if (!dati || !dati.prezzo || !dati.inStock) {
             log(`❌ Dati non validi o prodotto non disponibile per ${link}`);
-            await risultato.row.set('Pubblicato', 'ERRORE');
-            await risultato.row.save();
+            await segnaComePubblicato(risultato.row, 'ERRORE');
             return false;
         }
         
-        // Verifica che il prezzo originale sia valido (non null, non placeholder)
+        // Controllo che prezzoOriginale sia valido (non null, non zero, non placeholder)
         if (!dati.prezzoOriginale || dati.prezzoOriginale <= 0 || dati.prezzoOriginale > 5000) {
             log(`❌ Prezzo originale non valido (${dati.prezzoOriginale}), segno come ERRORE`);
-            await risultato.row.set('Pubblicato', 'ERRORE');
-            await risultato.row.save();
+            await segnaComePubblicato(risultato.row, 'ERRORE');
             return false;
         }
         
@@ -63,12 +60,11 @@ async function processaProssimoLink() {
         
         if (successo) {
             log(`✅ Pubblicato: ${dati.titolo.substring(0, 50)}...`);
-            await segnaComePubblicato(risultato.row);
+            await segnaComePubblicato(risultato.row, 'SI');
             return true;
         } else {
             log(`❌ Pubblicazione fallita per ${link}`);
-            await risultato.row.set('Pubblicato', 'ERRORE');
-            await risultato.row.save();
+            await segnaComePubblicato(risultato.row, 'ERRORE');
             return false;
         }
         

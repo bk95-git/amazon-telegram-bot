@@ -5,33 +5,31 @@ const doc = new GoogleSpreadsheet(process.env.SPREADSHEET_ID);
 async function caricaLinkDaSheets() {
     try {
         console.log('📊 Leggo Google Sheets...');
-        
         await doc.useServiceAccountAuth({
             client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
             private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
         });
-
         await doc.loadInfo();
         const sheet = doc.sheetsByIndex[0];
         const rows = await sheet.getRows();
-
         console.log(`📄 Trovate ${rows.length} righe nel foglio`);
-
-        for (const row of rows) {
-            if (row.get('Pubblicato') !== 'SI' && row.get('Link')) {
-                console.log(`✅ Trovato link da pubblicare: ${row.get('Link')}`);
-                return {
-                    link: row.get('Link'),
-                    row: row
-                };
+        
+        for (let row of rows) {
+            // Usa row.get('NomeColonna') - assumendo che la colonna si chiami 'Link'
+            const link = row.get('Link');
+            const pubblicato = row.get('Pubblicato');
+            if (link && pubblicato !== 'SI') {
+                console.log(`✅ Trovato link da pubblicare: ${link}`);
+                return { link, row };
             }
         }
-
         console.log('📭 Nessun link nuovo da pubblicare');
         return null;
-
     } catch (error) {
         console.error('❌ Errore lettura Google Sheets:', error.message);
+        if (error.response) {
+            console.error('Dettaglio:', error.response.data);
+        }
         return null;
     }
 }
