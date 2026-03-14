@@ -21,10 +21,13 @@ async function estraiDatiDaLink(url) {
                 return match ? parseFloat(match[1]) : null;
             }
 
-            // Titolo
+            function isPrezzoValido(valore) {
+                return valore && valore > 0 && valore < 5000; // esclude placeholder 9999
+            }
+
             const titolo = document.querySelector('#productTitle')?.textContent.trim() || '';
 
-            // --- PREZZO ATTUALE ---
+            // Prezzo attuale
             let prezzo = null;
             const intero = document.querySelector('.a-price-whole')?.textContent.replace(/[.,]/g, '');
             const frazione = document.querySelector('.a-price-fraction')?.textContent;
@@ -36,26 +39,29 @@ async function estraiDatiDaLink(url) {
                 if (buyPrice) prezzo = parsePrice(buyPrice);
             }
 
-            // --- PREZZO ORIGINALE (ricerca avanzata) ---
+            // Prezzo originale con tracciamento fonte
             let prezzoOriginale = null;
+            let fonte = null;
 
-            // 1. Selettori comuni per prezzo barrato
             const selettori = [
-                '.a-price.a-text-price span.a-offscreen',
-                '.priceBlockStrikePriceString',
-                '.a-text-price span.a-offscreen',
-                '.price3P',
-                '.list-price'
+                { sel: '.a-price.a-text-price span.a-offscreen', name: 'barrato' },
+                { sel: '.priceBlockStrikePriceString', name: 'strike' },
+                { sel: '.a-text-price span.a-offscreen', name: 'text-price' },
+                { sel: '.price3P', name: 'price3P' },
+                { sel: '.list-price', name: 'list-price' }
             ];
-            for (let sel of selettori) {
-                const el = document.querySelector(sel);
+            for (let s of selettori) {
+                const el = document.querySelector(s.sel);
                 if (el) {
-                    prezzoOriginale = parsePrice(el.textContent);
-                    if (prezzoOriginale) break;
+                    const val = parsePrice(el.textContent);
+                    if (isPrezzoValido(val)) {
+                        prezzoOriginale = val;
+                        fonte = s.name;
+                        break;
+                    }
                 }
             }
 
-            // 2. Tabella dettagli (Prezzo consigliato)
             if (!prezzoOriginale) {
                 const rows = document.querySelectorAll('#productDetails_detailBullets_sections1 tr, .a-normal tr');
                 for (let row of rows) {
@@ -63,61 +69,63 @@ async function estraiDatiDaLink(url) {
                     if (label && (label.includes('Prezzo consigliato') || label.includes('List Price') || label.includes('Prezzo di listino'))) {
                         const value = row.querySelector('td')?.textContent;
                         if (value) {
-                            prezzoOriginale = parsePrice(value);
-                            break;
+                            const val = parsePrice(value);
+                            if (isPrezzoValido(val)) {
+                                prezzoOriginale = val;
+                                fonte = 'tabella';
+                                break;
+                            }
                         }
                     }
                 }
             }
 
-            // 3. JSON-LD (dati strutturati)
             if (!prezzoOriginale) {
                 const script = document.querySelector('script[type="application/ld+json"]');
                 if (script) {
                     try {
                         const data = JSON.parse(script.textContent);
                         if (data.offers) {
-                            if (data.offers.highPrice) prezzoOriginale = data.offers.highPrice;
-                            else if (data.offers.price) {
-                                // A volte il prezzo attuale è in offers.price, ma il listPrice potrebbe essere altrove
+                            if (data.offers.highPrice && isPrezzoValido(data.offers.highPrice)) {
+                                prezzoOriginale = data.offers.highPrice;
+                                fonte = 'json-ld high';
+                            } else if (data.offers.price && isPrezzoValido(data.offers.price * 1.2)) {
+                                prezzoOriginale = data.offers.price * 1.2;
+                                fonte = 'json-ld stima';
                             }
                         }
                     } catch (e) {}
                 }
             }
 
-            // 4. Ricerca testuale nel corpo della pagina
             if (!prezzoOriginale) {
                 const bodyText = document.body.innerText;
                 const match = bodyText.match(/(?:Prezzo consigliato|List Price|Prezzo di listino)[:\s]*([€£$]?\s*[\d.,]+)/i);
                 if (match) {
-                    prezzoOriginale = parsePrice(match[1]);
+                    const val = parsePrice(match[1]);
+                    if (isPrezzoValido(val)) {
+                        prezzoOriginale = val;
+                        fonte = 'testuale';
+                    }
                 }
             }
 
-            // Se ancora non trovato, usa prezzo attuale
             if (!prezzoOriginale && prezzo) {
                 prezzoOriginale = prezzo;
+                fonte = 'default';
             }
 
-            // --- SCONTO ---
+            console.log(`🔍 Fonte prezzo originale: ${fonte}, valore: ${prezzoOriginale}`);
+
             let sconto = 0;
             if (prezzoOriginale && prezzo && prezzoOriginale > prezzo) {
                 sconto = Math.round(((prezzoOriginale - prezzo) / prezzoOriginale) * 100);
             }
 
-            // --- IMMAGINE ---
-            const immagine = document.querySelector('#landingImage')?.src || 
-                            document.querySelector('.imgTagWrapper img')?.src || '';
-
-            // --- ASIN ---
-            const asin = document.querySelector('meta[name="asin"]')?.content || 
-                         window.location.pathname.match(/\/dp\/([A-Z0-9]{10})/)?.[1] || '';
-
-            // --- DISPONIBILITÀ ---
+            const immagine = document.querySelector('#landingImage')?.src || '';
+            const asin = document.querySelector('meta[name="asin"]')?.content || window.location.pathname.match(/\/dp\/([A-Z0-9]{10})/)?.[1] || '';
             const disponibilita = document.querySelector('#availability span')?.textContent.trim() || '';
-            const inStock = !disponibilita.toLowerCase().includes('non disponibile') && 
-                           !disponibilita.toLowerCase().includes('esaurito');
+            const inStock = !disponibilita.toLowerCase().includes('non disponibile') && !disponibilita.toLowerCase().includes('esaurito');
 
             return {
                 titolo,
@@ -131,6 +139,7 @@ async function estraiDatiDaLink(url) {
         });
         
         await browser.close();
+        console.log('📦 Dati estratti:', JSON.stringify(dati, null, 2));
         return dati;
         
     } catch (error) {
