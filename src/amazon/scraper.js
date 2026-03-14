@@ -20,46 +20,47 @@ async function estraiDatiDaLink(url) {
                 const match = testo.replace(/[^\d,]/g, '').replace(',', '.').match(/(\d+(?:\.\d+)?)/);
                 return match ? parseFloat(match[1]) : null;
             }
-            
+
+            // Titolo
             const titolo = document.querySelector('#productTitle')?.textContent.trim() || '';
-            
+
             // --- PREZZO ATTUALE ---
             let prezzo = null;
-            
-            // Metodo 1: prezzo intero + frazione
             const intero = document.querySelector('.a-price-whole')?.textContent.replace(/[.,]/g, '');
             const frazione = document.querySelector('.a-price-fraction')?.textContent;
             if (intero && frazione) {
                 prezzo = parseFloat(intero + '.' + frazione);
             }
-            
-            // Metodo 2: prezzo nella buy box
             if (!prezzo) {
                 const buyPrice = document.querySelector('#price_inside_buybox')?.textContent;
                 if (buyPrice) prezzo = parsePrice(buyPrice);
             }
-            
-            // --- PREZZO ORIGINALE (ricerca a più livelli) ---
+
+            // --- PREZZO ORIGINALE (ricerca avanzata) ---
             let prezzoOriginale = null;
-            
-            // Livello 1: prezzo barrato classico
-            const prezzoBarrato = document.querySelector('.a-price.a-text-price span.a-offscreen');
-            if (prezzoBarrato) {
-                prezzoOriginale = parsePrice(prezzoBarrato.textContent);
+
+            // 1. Selettori comuni per prezzo barrato
+            const selettori = [
+                '.a-price.a-text-price span.a-offscreen',
+                '.priceBlockStrikePriceString',
+                '.a-text-price span.a-offscreen',
+                '.price3P',
+                '.list-price'
+            ];
+            for (let sel of selettori) {
+                const el = document.querySelector(sel);
+                if (el) {
+                    prezzoOriginale = parsePrice(el.textContent);
+                    if (prezzoOriginale) break;
+                }
             }
-            
-            // Livello 2: prezzo nella sezione "Sconto" (a volte in un altro span)
-            if (!prezzoOriginale) {
-                const strikePrice = document.querySelector('.priceBlockStrikePriceString');
-                if (strikePrice) prezzoOriginale = parsePrice(strikePrice.textContent);
-            }
-            
-            // Livello 3: prezzo consigliato nella tabella dettagli (es. "Prezzo consigliato:")
+
+            // 2. Tabella dettagli (Prezzo consigliato)
             if (!prezzoOriginale) {
                 const rows = document.querySelectorAll('#productDetails_detailBullets_sections1 tr, .a-normal tr');
-                for (const row of rows) {
+                for (let row of rows) {
                     const label = row.querySelector('th')?.textContent;
-                    if (label && (label.includes('Prezzo consigliato') || label.includes('List Price'))) {
+                    if (label && (label.includes('Prezzo consigliato') || label.includes('List Price') || label.includes('Prezzo di listino'))) {
                         const value = row.querySelector('td')?.textContent;
                         if (value) {
                             prezzoOriginale = parsePrice(value);
@@ -68,47 +69,56 @@ async function estraiDatiDaLink(url) {
                     }
                 }
             }
-            
-            // Livello 4: prezzo nel JSON-LD (dati strutturati)
+
+            // 3. JSON-LD (dati strutturati)
             if (!prezzoOriginale) {
                 const script = document.querySelector('script[type="application/ld+json"]');
                 if (script) {
                     try {
                         const data = JSON.parse(script.textContent);
-                        if (data.offers && data.offers.price) {
-                            // Se c'è un prezzo di listino, potrebbe essere in data.offers.highPrice
-                            if (data.offers.highPrice) {
-                                prezzoOriginale = data.offers.highPrice;
+                        if (data.offers) {
+                            if (data.offers.highPrice) prezzoOriginale = data.offers.highPrice;
+                            else if (data.offers.price) {
+                                // A volte il prezzo attuale è in offers.price, ma il listPrice potrebbe essere altrove
                             }
                         }
                     } catch (e) {}
                 }
             }
-            
-            // Se non troviamo prezzo originale, lo impostiamo uguale al prezzo attuale (nessuno sconto)
+
+            // 4. Ricerca testuale nel corpo della pagina
+            if (!prezzoOriginale) {
+                const bodyText = document.body.innerText;
+                const match = bodyText.match(/(?:Prezzo consigliato|List Price|Prezzo di listino)[:\s]*([€£$]?\s*[\d.,]+)/i);
+                if (match) {
+                    prezzoOriginale = parsePrice(match[1]);
+                }
+            }
+
+            // Se ancora non trovato, usa prezzo attuale
             if (!prezzoOriginale && prezzo) {
                 prezzoOriginale = prezzo;
             }
-            
+
             // --- SCONTO ---
             let sconto = 0;
             if (prezzoOriginale && prezzo && prezzoOriginale > prezzo) {
                 sconto = Math.round(((prezzoOriginale - prezzo) / prezzoOriginale) * 100);
             }
-            
+
             // --- IMMAGINE ---
             const immagine = document.querySelector('#landingImage')?.src || 
                             document.querySelector('.imgTagWrapper img')?.src || '';
-            
+
             // --- ASIN ---
             const asin = document.querySelector('meta[name="asin"]')?.content || 
                          window.location.pathname.match(/\/dp\/([A-Z0-9]{10})/)?.[1] || '';
-            
+
             // --- DISPONIBILITÀ ---
             const disponibilita = document.querySelector('#availability span')?.textContent.trim() || '';
             const inStock = !disponibilita.toLowerCase().includes('non disponibile') && 
                            !disponibilita.toLowerCase().includes('esaurito');
-            
+
             return {
                 titolo,
                 prezzo,
