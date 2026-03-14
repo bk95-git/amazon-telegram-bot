@@ -18,7 +18,7 @@ async function processaProssimoLink() {
 
         if (!dati || !dati.prezzo || !dati.inStock) {
             console.log(`❌ Dati non validi o prodotto non disponibile per ${link}`);
-            await risultato.row.set('Pubblicato', 'ERRORE');
+            risultato.row.set('Pubblicato', 'ERRORE');
             await risultato.row.save();
             return false;
         }
@@ -26,7 +26,7 @@ async function processaProssimoLink() {
         // Controllo validità prezzo originale
         if (!dati.prezzoOriginale || dati.prezzoOriginale <= 0 || dati.prezzoOriginale > 5000) {
             console.log(`❌ Prezzo originale non valido (${dati.prezzoOriginale}), segno come ERRORE`);
-            await risultato.row.set('Pubblicato', 'ERRORE');
+            risultato.row.set('Pubblicato', 'ERRORE');
             await risultato.row.save();
             return false;
         }
@@ -49,7 +49,7 @@ async function processaProssimoLink() {
             return true;
         } else {
             console.log(`❌ Pubblicazione fallita per ${link}`);
-            await risultato.row.set('Pubblicato', 'ERRORE');
+            risultato.row.set('Pubblicato', 'ERRORE');
             await risultato.row.save();
             return false;
         }

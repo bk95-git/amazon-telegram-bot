@@ -11,11 +11,17 @@ async function caricaLinkDaSheets() {
         });
         await doc.loadInfo();
         const sheet = doc.sheetsByIndex[0];
-        const rows = await sheet.getRows(); // rows è un array di oggetti con metodo get()
+        const rows = await sheet.getRows(); // rows è un array di oggetti Row (versione 5.x)
         console.log(`📄 Trovate ${rows.length} righe nel foglio`);
 
+        // Log per debug: stampa le chiavi della prima riga
+        if (rows.length > 0) {
+            console.log('🔑 Chiavi disponibili nella prima riga:', Object.keys(rows[0]));
+        }
+
         for (const row of rows) {
-            const pubblicato = row.get('Pubblicato'); // metodo get() funziona
+            // In versione 5.x, si usa row.get('NomeColonna')
+            const pubblicato = row.get('Pubblicato');
             const link = row.get('Link');
             if ((pubblicato !== 'SI') && link) {
                 console.log(`✅ Trovato link da pubblicare: ${link}`);
@@ -33,6 +39,7 @@ async function caricaLinkDaSheets() {
 
 async function segnaComePubblicato(row) {
     try {
+        // In versione 5.x, si usa row.set('NomeColonna', valore)
         row.set('Pubblicato', 'SI');
         row.set('Data Pubblicazione', new Date().toLocaleString('it-IT'));
         await row.save();
