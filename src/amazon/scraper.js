@@ -44,6 +44,7 @@ async function estraiDatiDaLink(url) {
                         t.includes('30gg') ||
                         t.includes('basso') ||
                         t.includes('consigliato') ||
+                        t.includes('mediano') ||
                         t.includes('Era') ||
                         t.includes('Was') ||
                         t.includes('List') ||
@@ -61,6 +62,10 @@ async function estraiDatiDaLink(url) {
         const dati = await page.evaluate(() => {
             function parsePrice(testo) {
                 if (!testo) return null;
+                // Ignora prezzi unitari tipo €/l, €/kg
+                if (testo.includes('/ l') || testo.includes('/l') ||
+                    testo.includes('/ kg') || testo.includes('/kg') ||
+                    testo.includes('/ pz') || testo.includes('/ pezzo')) return null;
                 const pulito = testo.replace(/[^\d,\.]/g, '').trim();
                 const normalizzato = pulito.replace(/\.(?=\d{3})/g, '').replace(',', '.');
                 const match = normalizzato.match(/(\d+(?:\.\d+)?)/);
@@ -106,7 +111,7 @@ async function estraiDatiDaLink(url) {
                 const elementi = document.querySelectorAll(sel);
                 for (const el of elementi) {
                     const val = parsePrice(el.textContent);
-                    if (val && val > 1 && val < 5000) {
+                    if (val && val > 1 && val < 5000 && prezzo && val > prezzo) {
                         prezzoOriginale = val;
                         break;
                     }
@@ -114,14 +119,21 @@ async function estraiDatiDaLink(url) {
                 if (prezzoOriginale) break;
             }
 
-            // Metodo 2: testo "Prezzo più basso ultimi 30gg", "Era:", ecc.
+            // Metodo 2: testo "Prezzo più basso ultimi 30gg", "Prezzo mediano", "Era:", ecc.
             if (!prezzoOriginale) {
                 const tuttiGliElementi = document.querySelectorAll('span, p, td, div');
                 for (const el of tuttiGliElementi) {
                     const testo = el.textContent.trim();
+
+                    // Ignora prezzi unitari tipo (5,46€ / l) o €/kg
+                    if (testo.includes('/ l') || testo.includes('/l') ||
+                        testo.includes('/ kg') || testo.includes('/kg') ||
+                        testo.includes('/ pz') || testo.includes('/ pezzo')) continue;
+
                     if (
                         testo.includes('Prezzo più basso ultimi 30') ||
                         testo.includes('lowest price in the last 30') ||
+                        testo.includes('Prezzo mediano') ||
                         testo.includes('Prezzo consigliato') ||
                         testo.includes('List Price') ||
                         testo.includes('Era:') ||
@@ -131,7 +143,8 @@ async function estraiDatiDaLink(url) {
                         const matches = [...testo.matchAll(/(\d{1,4}[,\.]\d{2})/g)];
                         for (const match of matches) {
                             const val = parsePrice(match[1]);
-                            if (val && val > 1 && val < 5000) {
+                            // Il prezzo originale deve essere maggiore del prezzo attuale
+                            if (val && val > 1 && val < 5000 && prezzo && val > prezzo) {
                                 prezzoOriginale = val;
                                 break;
                             }
