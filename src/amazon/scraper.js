@@ -15,9 +15,10 @@ async function estraiDatiDaLink(url) {
         const dati = await page.evaluate(() => {
             function parsePrice(testo) {
                 if (!testo) return null;
+                // Rimuove tutto tranne numeri, virgola e punto
                 const pulito = testo.replace(/[^\d,\.]/g, '').trim();
-                // Gestisce formato italiano: 64,66 o 64.66
-                const normalizzato = pulito.replace(',', '.');
+                // Gestisce formato italiano: 69,97 → 69.97
+                const normalizzato = pulito.replace(/\.(?=\d{3})/g, '').replace(',', '.');
                 const match = normalizzato.match(/(\d+(?:\.\d+)?)/);
                 return match ? parseFloat(match[1]) : null;
             }
@@ -27,30 +28,34 @@ async function estraiDatiDaLink(url) {
             // ── PREZZO ATTUALE ──────────────────────────────────────
             let prezzo = null;
 
-            // Metodo 1: intero + frazione
-            const intero = document.querySelector('.a-price-whole')?.textContent.replace(/[.,]/g, '');
-            const frazione = document.querySelector('.a-price-fraction')?.textContent;
+            // Metodo 1: intero + frazione (es. 19 + 99)
+            const intero = document.querySelector('.a-price-whole')?.textContent.replace(/[.,\s]/g, '');
+            const frazione = document.querySelector('.a-price-fraction')?.textContent?.replace(/[^\d]/g, '');
             if (intero && frazione) prezzo = parseFloat(intero + '.' + frazione);
 
             // Metodo 2: buybox
             if (!prezzo) prezzo = parsePrice(document.querySelector('#price_inside_buybox')?.textContent);
 
-            // Metodo 3: core price display
-            if (!prezzo) prezzo = parsePrice(document.querySelector('#corePriceDisplay_desktop_feature_div .a-price-whole')?.textContent + '.' + document.querySelector('#corePriceDisplay_desktop_feature_div .a-price-fraction')?.textContent);
+            // Metodo 3: offscreen (valore nascosto accessibile)
+            if (!prezzo) {
+                const offscreen = document.querySelector('#corePriceDisplay_desktop_feature_div .a-price:not(.a-text-price) .a-offscreen');
+                if (offscreen) prezzo = parsePrice(offscreen.textContent);
+            }
+
+            console.log('💰 Prezzo attuale trovato:', prezzo);
 
             // ── PREZZO ORIGINALE ────────────────────────────────────
             let prezzoOriginale = null;
 
-            // Lista completa di selettori per il prezzo barrato
+            // Metodo 1: selettori CSS classici
             const selettoriOriginale = [
                 '#corePriceDisplay_desktop_feature_div .a-price.a-text-price span.a-offscreen',
                 '#corePriceDisplay_desktop_feature_div .basisPrice span.a-offscreen',
-                '.a-price[data-a-strike="true"] .a-offscreen',
                 '.basisPrice .a-offscreen',
+                '.a-price[data-a-strike="true"] .a-offscreen',
                 '.a-price.a-text-price span.a-offscreen',
                 '.priceBlockStrikePriceString',
                 '#listPrice',
-                '#priceblock_dealprice',
                 '.a-text-price .a-offscreen',
                 '[data-a-strike="true"] span.a-offscreen'
             ];
@@ -61,40 +66,69 @@ async function estraiDatiDaLink(url) {
                     const val = parsePrice(el.textContent);
                     if (val && val > 0 && val < 5000) {
                         prezzoOriginale = val;
+                        console.log(`✅ Prezzo originale trovato con selettore "${sel}":`, val);
                         break;
                     }
                 }
                 if (prezzoOriginale) break;
             }
 
-            // Metodo alternativo: cerca "Risparmi" o "Prezzo consigliato"
+            // Metodo 2: "Prezzo più basso ultimi 30gg: €69,97" (Amazon Italia)
             if (!prezzoOriginale) {
-                const tuttoTesto = document.body.innerText;
-
-                // Cerca pattern "Prezzo consigliato: €XX,XX"
-                const matchListino = tuttoTesto.match(/Prezzo consigliato[:\s]+(?:EUR\s*)?(\d+[,\.]\d+)/i);
-                if (matchListino) prezzoOriginale = parsePrice(matchListino[1]);
-
-                // Cerca "Era: €XX,XX"
-                if (!prezzoOriginale) {
-                    const matchEra = tuttoTesto.match(/Era[:\s]+(?:EUR\s*)?(\d+[,\.]\d+)/i);
-                    if (matchEra) prezzoOriginale = parsePrice(matchEra[1]);
+                const tuttiGliElementi = document.querySelectorAll('span, p, td, div');
+                for (const el of tuttiGliElementi) {
+                    const testo = el.textContent.trim();
+                    if (
+                        testo.includes('Prezzo più basso ultimi 30') ||
+                        testo.includes('lowest price in the last 30') ||
+                        testo.includes('Prezzo consigliato') ||
+                        testo.includes('List Price') ||
+                        testo.includes('Era:') ||
+                        testo.includes('Was:')
+                    ) {
+                        // Cerca tutti i prezzi nel testo e prende il più alto
+                        const matches = testo.matchAll(/(\d{1,4}[,\.]\d{2})/g);
+                        for (const match of matches) {
+                            const val = parsePrice(match[1]);
+                            if (val && val > 0 && val < 5000) {
+                                prezzoOriginale = val;
+                                console.log(`✅ Prezzo originale trovato nel testo "${testo.substring(0, 60)}":`, val);
+                                break;
+                            }
+                        }
+                        if (prezzoOriginale) break;
+                    }
                 }
             }
 
-            // Metodo: cerca percentuale sconto direttamente nel badge
+            // Metodo 3: cerca badge sconto % (es. -71%)
             let scontoPercentuale = null;
-            const badgeSconto = document.querySelector(
-                '.a-badge-text, .savingsPercentage, [data-csa-c-type="widget"][class*="savings"] span'
-            );
-            if (badgeSconto) {
-                const matchPct = badgeSconto.textContent.match(/(\d+)\s*%/);
-                if (matchPct) scontoPercentuale = parseInt(matchPct[1]);
+            const selettoriBadge = [
+                '.savingsPercentage',
+                '.a-badge-text',
+                '#corePriceDisplay_desktop_feature_div .a-color-price',
+                '#dealsAccordionRow .a-color-price',
+                'span[class*="savingBadge"]',
+                '#apex_offerDisplay_desktop span'
+            ];
+
+            for (const sel of selettoriBadge) {
+                const elementi = document.querySelectorAll(sel);
+                for (const el of elementi) {
+                    const match = el.textContent.match(/-?\s*(\d+)\s*%/);
+                    if (match) {
+                        scontoPercentuale = parseInt(match[1]);
+                        console.log(`✅ Sconto badge trovato: -${scontoPercentuale}%`);
+                        break;
+                    }
+                }
+                if (scontoPercentuale) break;
             }
 
             // Se ho lo sconto % ma non il prezzo originale, lo calcolo
             if (!prezzoOriginale && scontoPercentuale && prezzo) {
                 prezzoOriginale = Math.round((prezzo / (1 - scontoPercentuale / 100)) * 100) / 100;
+                console.log(`🧮 Prezzo originale calcolato da sconto ${scontoPercentuale}%:`, prezzoOriginale);
             }
 
             // Calcolo sconto finale
