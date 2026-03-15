@@ -13,23 +13,28 @@ async function generaTemplate(offerta, èErrore) {
     <!DOCTYPE html>
     <html>
     <head>
+      <meta charset="UTF-8">
+      <link href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&family=Arial&display=swap" rel="stylesheet">
       <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap');
+
         body {
           width: 1080px;
           height: 1080px;
           margin: 0;
-          font-family: 'Arial', sans-serif;
+          font-family: 'Arial', 'Noto Color Emoji', sans-serif;
           background: white;
         }
         .container { padding: 30px; }
         .badge {
-          background: ${process.env.COLORE_PRIMARIO};
+          background: ${process.env.COLORE_PRIMARIO || '#FFD700'};
           padding: 25px;
           text-align: center;
           font-size: 40px;
           font-weight: bold;
           border-radius: 15px;
           margin-bottom: 30px;
+          font-family: 'Arial', 'Noto Color Emoji', sans-serif;
         }
         .image-box {
           text-align: center;
@@ -44,7 +49,7 @@ async function generaTemplate(offerta, èErrore) {
         .title {
           font-size: 28px;
           font-weight: bold;
-          color: ${process.env.COLORE_SECONDARIO};
+          color: ${process.env.COLORE_SECONDARIO || '#003366'};
           text-align: center;
           margin: 30px 0;
           line-height: 1.4;
@@ -64,6 +69,7 @@ async function generaTemplate(offerta, èErrore) {
           font-size: 60px;
           font-weight: bold;
           color: #E53935;
+          font-family: 'Arial', 'Noto Color Emoji', sans-serif;
         }
         .old-price {
           font-size: 40px;
@@ -71,7 +77,7 @@ async function generaTemplate(offerta, èErrore) {
           text-decoration: line-through;
         }
         .discount-circle {
-          background: ${process.env.COLORE_PRIMARIO};
+          background: ${process.env.COLORE_PRIMARIO || '#FFD700'};
           width: 120px;
           height: 120px;
           border-radius: 50%;
@@ -85,7 +91,7 @@ async function generaTemplate(offerta, èErrore) {
           box-shadow: 0 4px 10px rgba(0,0,0,0.2);
         }
         .footer {
-          background: ${process.env.COLORE_SECONDARIO};
+          background: ${process.env.COLORE_SECONDARIO || '#003366'};
           color: white;
           padding: 25px;
           text-align: center;
@@ -118,20 +124,20 @@ async function generaTemplate(offerta, èErrore) {
     <body>
       <div class="container">
         <div class="badge">
-          ${èErrore ? '🔥 PROBABILE ERRORE 🔥' : '🌸 OFFERTA DI PRIMAVERA 🌸'}
+          ${èErrore ? '*** PROBABILE ERRORE ***' : '🌸 OFFERTA DI PRIMAVERA 🌸'}
         </div>
         
         <div class="image-box">
           ${offerta.immagine ? 
-            `<img src="${offerta.immagine}" alt="${offerta.titolo}">` : 
-            `<div class="placeholder">📷 IMMAGINE NON DISPONIBILE</div>`
+            `<img src="${offerta.immagine}" alt="prodotto">` : 
+            `<div class="placeholder">IMMAGINE NON DISPONIBILE</div>`
           }
         </div>
         
         <div class="title">${offerta.titolo}</div>
         
         <div class="price-container">
-          <span class="current-price">💰 ${offerta.prezzo.toFixed(2).replace('.', ',')}€</span>
+          <span class="current-price">${offerta.prezzo.toFixed(2).replace('.', ',')}€</span>
           <span class="old-price">${offerta.prezzoOriginale.toFixed(2).replace('.', ',')}€</span>
           <div class="discount-circle">-${offerta.sconto}%</div>
         </div>
@@ -145,7 +151,7 @@ async function generaTemplate(offerta, èErrore) {
     </html>
   `;
 
-  await page.setContent(html);
+  await page.setContent(html, { waitUntil: 'networkidle0' });
   await page.setViewport({ width: 1080, height: 1080 });
   
   const screenshot = await page.screenshot({ 
