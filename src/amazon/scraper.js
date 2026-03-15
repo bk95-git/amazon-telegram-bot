@@ -60,12 +60,16 @@ async function estraiDatiDaLink(url) {
         console.log('🔎 DEBUG TESTI RILEVANTI:', JSON.stringify(htmlDebug, null, 2));
 
         const dati = await page.evaluate(() => {
+            function isPrezzUnitario(testo) {
+                return testo.includes('/ kg') || testo.includes('/kg') ||
+                       testo.includes('/ l)') || testo.includes('/l)') ||
+                       testo.includes('/ pz') || testo.includes('/ pezzo') ||
+                       testo.includes('/ 100');
+            }
+
             function parsePrice(testo) {
                 if (!testo) return null;
-                // Ignora prezzi unitari tipo €/l, €/kg
-                if (testo.includes('/ l') || testo.includes('/l') ||
-                    testo.includes('/ kg') || testo.includes('/kg') ||
-                    testo.includes('/ pz') || testo.includes('/ pezzo')) return null;
+                if (isPrezzUnitario(testo)) return null;
                 const pulito = testo.replace(/[^\d,\.]/g, '').trim();
                 const normalizzato = pulito.replace(/\.(?=\d{3})/g, '').replace(',', '.');
                 const match = normalizzato.match(/(\d+(?:\.\d+)?)/);
@@ -94,7 +98,7 @@ async function estraiDatiDaLink(url) {
             // ── PREZZO ORIGINALE ────────────────────────────────────
             let prezzoOriginale = null;
 
-            // Metodo 1: selettori CSS classici
+            // Metodo 1: selettori CSS classici con controllo contesto
             const selettoriOriginale = [
                 '#corePriceDisplay_desktop_feature_div .a-price.a-text-price span.a-offscreen',
                 '#corePriceDisplay_desktop_feature_div .basisPrice span.a-offscreen',
@@ -110,6 +114,11 @@ async function estraiDatiDaLink(url) {
             for (const sel of selettoriOriginale) {
                 const elementi = document.querySelectorAll(sel);
                 for (const el of elementi) {
+                    // Controlla il contesto per escludere prezzi unitari
+                    const testoContesto = (el.parentElement?.textContent || '') + 
+                                          (el.parentElement?.parentElement?.textContent || '');
+                    if (isPrezzUnitario(testoContesto)) continue;
+
                     const val = parsePrice(el.textContent);
                     if (val && val > 1 && val < 5000 && prezzo && val > prezzo) {
                         prezzoOriginale = val;
@@ -119,23 +128,22 @@ async function estraiDatiDaLink(url) {
                 if (prezzoOriginale) break;
             }
 
-            // Metodo 2: testo "Prezzo più basso ultimi 30gg", "Prezzo mediano", "Era:", ecc.
+            // Metodo 2: testo "Prezzo consigliato", "Prezzo più basso ultimi 30gg", "Era:", ecc.
             if (!prezzoOriginale) {
                 const tuttiGliElementi = document.querySelectorAll('span, p, td, div');
                 for (const el of tuttiGliElementi) {
                     const testo = el.textContent.trim();
 
-                    // Ignora prezzi unitari tipo (5,46€ / l) o €/kg
-                    if (testo.includes('/ l') || testo.includes('/l') ||
-                        testo.includes('/ kg') || testo.includes('/kg') ||
-                        testo.includes('/ pz') || testo.includes('/ pezzo')) continue;
+                    // Ignora prezzi unitari
+                    if (isPrezzUnitario(testo)) continue;
 
+                    // Priorità: prima "Prezzo consigliato", poi "30gg", poi altri
                     if (
+                        testo.includes('Prezzo consigliato') ||
+                        testo.includes('List Price') ||
                         testo.includes('Prezzo più basso ultimi 30') ||
                         testo.includes('lowest price in the last 30') ||
                         testo.includes('Prezzo mediano') ||
-                        testo.includes('Prezzo consigliato') ||
-                        testo.includes('List Price') ||
                         testo.includes('Era:') ||
                         testo.includes('Was:') ||
                         testo.includes('Risparmi')
@@ -143,7 +151,6 @@ async function estraiDatiDaLink(url) {
                         const matches = [...testo.matchAll(/(\d{1,4}[,\.]\d{2})/g)];
                         for (const match of matches) {
                             const val = parsePrice(match[1]);
-                            // Il prezzo originale deve essere maggiore del prezzo attuale
                             if (val && val > 1 && val < 5000 && prezzo && val > prezzo) {
                                 prezzoOriginale = val;
                                 break;
@@ -182,9 +189,9 @@ async function estraiDatiDaLink(url) {
                 prezzoOriginale = Math.round((prezzo / (1 - scontoPercentuale / 100)) * 100) / 100;
             }
 
-            // Calcolo sconto finale
-            let sconto = scontoPercentuale || 0;
-            if (!sconto && prezzoOriginale && prezzo && prezzoOriginale > prezzo) {
+            // Calcolo sconto SEMPRE dai prezzi reali
+            let sconto = 0;
+            if (prezzoOriginale && prezzo && prezzoOriginale > prezzo) {
                 sconto = Math.round(((prezzoOriginale - prezzo) / prezzoOriginale) * 100);
             }
 
