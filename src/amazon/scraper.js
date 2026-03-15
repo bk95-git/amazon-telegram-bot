@@ -12,6 +12,13 @@ async function estraiDatiDaLink(url) {
         await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
         await page.waitForSelector('#productTitle', { timeout: 10000 });
 
+     // Aspetta che i prezzi siano caricati
+     await page.waitForSelector('.a-price', { timeout: 10000 }).catch(() => {
+     console.log('⚠️ Selettore .a-price non trovato, continuo comunque');
+});
+
+// Pausa extra per JavaScript dinamico di Amazon
+await new Promise(r => setTimeout(r, 3000));
         // DEBUG TEMPORANEO - vediamo cosa vede il bot sulla pagina
         const htmlDebug = await page.evaluate(() => {
             const risultati = [];
