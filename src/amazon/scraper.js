@@ -18,7 +18,7 @@ async function estraiDatiDaLink(url) {
 });
 
 // Pausa extra per JavaScript dinamico di Amazon
-await new Promise(r => setTimeout(r, 3000));
+await new Promise(r => setTimeout(r, 6000));
         // DEBUG TEMPORANEO - vediamo cosa vede il bot sulla pagina
         const htmlDebug = await page.evaluate(() => {
             const risultati = [];
@@ -89,7 +89,7 @@ await new Promise(r => setTimeout(r, 3000));
                 const elementi = document.querySelectorAll(sel);
                 for (const el of elementi) {
                     const val = parsePrice(el.textContent);
-                    if (val && val > 0 && val < 5000) {
+                    if (val && val > 1 && val < 5000) {
                         prezzoOriginale = val;
                         break;
                     }
@@ -114,7 +114,7 @@ await new Promise(r => setTimeout(r, 3000));
                         const matches = [...testo.matchAll(/(\d{1,4}[,\.]\d{2})/g)];
                         for (const match of matches) {
                             const val = parsePrice(match[1]);
-                            if (val && val > 0 && val < 5000) {
+                            if (val && val > 1 && val < 5000) {
                                 prezzoOriginale = val;
                                 break;
                             }
