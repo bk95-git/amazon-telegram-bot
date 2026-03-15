@@ -12,12 +12,36 @@ async function estraiDatiDaLink(url) {
         await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
         await page.waitForSelector('#productTitle', { timeout: 10000 });
 
+        // DEBUG TEMPORANEO - vediamo cosa vede il bot sulla pagina
+        const htmlDebug = await page.evaluate(() => {
+            const risultati = [];
+            document.querySelectorAll('span, div, p, td').forEach(el => {
+                const t = el.textContent.trim();
+                if (
+                    t.match(/\d+[,\.]\d{2}/) &&
+                    (
+                        t.includes('%') ||
+                        t.includes('30gg') ||
+                        t.includes('basso') ||
+                        t.includes('consigliato') ||
+                        t.includes('Era') ||
+                        t.includes('Was') ||
+                        t.includes('List') ||
+                        t.includes('Risparmi')
+                    ) &&
+                    t.length < 150
+                ) {
+                    risultati.push(t);
+                }
+            });
+            return [...new Set(risultati)].slice(0, 30);
+        });
+        console.log('🔎 DEBUG TESTI RILEVANTI:', JSON.stringify(htmlDebug, null, 2));
+
         const dati = await page.evaluate(() => {
             function parsePrice(testo) {
                 if (!testo) return null;
-                // Rimuove tutto tranne numeri, virgola e punto
                 const pulito = testo.replace(/[^\d,\.]/g, '').trim();
-                // Gestisce formato italiano: 69,97 → 69.97
                 const normalizzato = pulito.replace(/\.(?=\d{3})/g, '').replace(',', '.');
                 const match = normalizzato.match(/(\d+(?:\.\d+)?)/);
                 return match ? parseFloat(match[1]) : null;
@@ -28,26 +52,20 @@ async function estraiDatiDaLink(url) {
             // ── PREZZO ATTUALE ──────────────────────────────────────
             let prezzo = null;
 
-            // Metodo 1: intero + frazione (es. 19 + 99)
             const intero = document.querySelector('.a-price-whole')?.textContent.replace(/[.,\s]/g, '');
             const frazione = document.querySelector('.a-price-fraction')?.textContent?.replace(/[^\d]/g, '');
             if (intero && frazione) prezzo = parseFloat(intero + '.' + frazione);
 
-            // Metodo 2: buybox
             if (!prezzo) prezzo = parsePrice(document.querySelector('#price_inside_buybox')?.textContent);
 
-            // Metodo 3: offscreen (valore nascosto accessibile)
             if (!prezzo) {
                 const offscreen = document.querySelector('#corePriceDisplay_desktop_feature_div .a-price:not(.a-text-price) .a-offscreen');
                 if (offscreen) prezzo = parsePrice(offscreen.textContent);
             }
 
-            console.log('💰 Prezzo attuale trovato:', prezzo);
-
             // ── PREZZO ORIGINALE ────────────────────────────────────
             let prezzoOriginale = null;
 
-            // Metodo 1: selettori CSS classici
             const selettoriOriginale = [
                 '#corePriceDisplay_desktop_feature_div .a-price.a-text-price span.a-offscreen',
                 '#corePriceDisplay_desktop_feature_div .basisPrice span.a-offscreen',
@@ -66,14 +84,13 @@ async function estraiDatiDaLink(url) {
                     const val = parsePrice(el.textContent);
                     if (val && val > 0 && val < 5000) {
                         prezzoOriginale = val;
-                        console.log(`✅ Prezzo originale trovato con selettore "${sel}":`, val);
                         break;
                     }
                 }
                 if (prezzoOriginale) break;
             }
 
-            // Metodo 2: "Prezzo più basso ultimi 30gg: €69,97" (Amazon Italia)
+            // Metodo testo: "Prezzo più basso ultimi 30gg", "Era:", "Prezzo consigliato"
             if (!prezzoOriginale) {
                 const tuttiGliElementi = document.querySelectorAll('span, p, td, div');
                 for (const el of tuttiGliElementi) {
@@ -84,15 +101,14 @@ async function estraiDatiDaLink(url) {
                         testo.includes('Prezzo consigliato') ||
                         testo.includes('List Price') ||
                         testo.includes('Era:') ||
-                        testo.includes('Was:')
+                        testo.includes('Was:') ||
+                        testo.includes('Risparmi')
                     ) {
-                        // Cerca tutti i prezzi nel testo e prende il più alto
-                        const matches = testo.matchAll(/(\d{1,4}[,\.]\d{2})/g);
+                        const matches = [...testo.matchAll(/(\d{1,4}[,\.]\d{2})/g)];
                         for (const match of matches) {
                             const val = parsePrice(match[1]);
                             if (val && val > 0 && val < 5000) {
                                 prezzoOriginale = val;
-                                console.log(`✅ Prezzo originale trovato nel testo "${testo.substring(0, 60)}":`, val);
                                 break;
                             }
                         }
@@ -101,7 +117,7 @@ async function estraiDatiDaLink(url) {
                 }
             }
 
-            // Metodo 3: cerca badge sconto % (es. -71%)
+            // Metodo badge sconto %
             let scontoPercentuale = null;
             const selettoriBadge = [
                 '.savingsPercentage',
@@ -118,17 +134,15 @@ async function estraiDatiDaLink(url) {
                     const match = el.textContent.match(/-?\s*(\d+)\s*%/);
                     if (match) {
                         scontoPercentuale = parseInt(match[1]);
-                        console.log(`✅ Sconto badge trovato: -${scontoPercentuale}%`);
                         break;
                     }
                 }
                 if (scontoPercentuale) break;
             }
 
-            // Se ho lo sconto % ma non il prezzo originale, lo calcolo
+            // Calcola prezzo originale da sconto % se ancora null
             if (!prezzoOriginale && scontoPercentuale && prezzo) {
                 prezzoOriginale = Math.round((prezzo / (1 - scontoPercentuale / 100)) * 100) / 100;
-                console.log(`🧮 Prezzo originale calcolato da sconto ${scontoPercentuale}%:`, prezzoOriginale);
             }
 
             // Calcolo sconto finale
