@@ -14,36 +14,37 @@ async function generaTemplate(offerta, èErrore) {
     <html>
     <head>
       <meta charset="UTF-8">
-      <link href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&family=Arial&display=swap" rel="stylesheet">
+      <link href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap" rel="stylesheet">
       <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap');
-
         body {
           width: 1080px;
           height: 1080px;
           margin: 0;
-          font-family: 'Arial', 'Noto Color Emoji', sans-serif;
+          font-family: 'Arial', sans-serif;
           background: white;
         }
-        .container { padding: 30px; }
+        .container { 
+          padding: 30px; 
+        }
         .badge {
           background: ${process.env.COLORE_PRIMARIO || '#FFD700'};
           padding: 25px;
           text-align: center;
-          font-size: 40px;
+          font-size: 44px;
           font-weight: bold;
           border-radius: 15px;
           margin-bottom: 30px;
-          font-family: 'Arial', 'Noto Color Emoji', sans-serif;
+          font-family: 'Noto Color Emoji', 'Arial', sans-serif;
+          letter-spacing: 1px;
         }
         .image-box {
           text-align: center;
           margin: 30px 0;
-          height: 500px;
+          height: 450px;
         }
         .image-box img {
           max-width: 600px;
-          max-height: 500px;
+          max-height: 450px;
           object-fit: contain;
         }
         .title {
@@ -51,42 +52,47 @@ async function generaTemplate(offerta, èErrore) {
           font-weight: bold;
           color: ${process.env.COLORE_SECONDARIO || '#003366'};
           text-align: center;
-          margin: 30px 0;
+          margin: 20px 0;
           line-height: 1.4;
+          font-family: 'Arial', sans-serif;
         }
         .price-container {
           background: #F5F5F5;
-          padding: 40px;
+          padding: 35px 40px;
           border-radius: 30px;
-          margin: 30px 0;
+          margin: 20px 0;
           display: flex;
           justify-content: center;
           align-items: center;
           gap: 40px;
-          position: relative;
         }
         .current-price {
-          font-size: 60px;
+          font-size: 64px;
           font-weight: bold;
           color: #E53935;
-          font-family: 'Arial', 'Noto Color Emoji', sans-serif;
+          font-family: 'Arial', sans-serif;
+          letter-spacing: normal;
+          word-spacing: normal;
         }
         .old-price {
-          font-size: 40px;
-          color: #666;
+          font-size: 42px;
+          color: #888;
           text-decoration: line-through;
+          font-family: 'Arial', sans-serif;
+          letter-spacing: normal;
+          word-spacing: normal;
         }
         .discount-circle {
           background: ${process.env.COLORE_PRIMARIO || '#FFD700'};
-          width: 120px;
-          height: 120px;
+          width: 130px;
+          height: 130px;
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
           font-size: 36px;
           font-weight: bold;
-          margin-left: 20px;
+          font-family: 'Arial', sans-serif;
           border: 3px solid white;
           box-shadow: 0 4px 10px rgba(0,0,0,0.2);
         }
@@ -95,22 +101,24 @@ async function generaTemplate(offerta, èErrore) {
           color: white;
           padding: 25px;
           text-align: center;
-          margin-top: 50px;
+          margin-top: 30px;
           border-radius: 15px;
         }
         .hashtags {
-          font-size: 24px;
+          font-size: 22px;
           margin-bottom: 10px;
+          font-family: 'Arial', sans-serif;
         }
         .channel {
-          font-size: 28px;
+          font-size: 30px;
           font-weight: bold;
           letter-spacing: 1px;
+          font-family: 'Arial', sans-serif;
         }
         .placeholder {
           background: #eee;
           width: 600px;
-          height: 500px;
+          height: 450px;
           margin: 0 auto;
           display: flex;
           align-items: center;
@@ -118,13 +126,15 @@ async function generaTemplate(offerta, èErrore) {
           font-size: 24px;
           color: #999;
           border-radius: 20px;
+          font-family: 'Arial', sans-serif;
         }
       </style>
     </head>
     <body>
       <div class="container">
+
         <div class="badge">
-          ${èErrore ? '*** PROBABILE ERRORE ***' : '🌸 OFFERTA DI PRIMAVERA 🌸'}
+          ${èErrore ? '⚠️ PROBABILE ERRORE ⚠️' : '🌸 OFFERTA DI PRIMAVERA 🌸'}
         </div>
         
         <div class="image-box">
@@ -146,6 +156,7 @@ async function generaTemplate(offerta, èErrore) {
           <div class="hashtags">#offerte #amazon ${èErrore ? '#erroreprezzo' : ''}</div>
           <div class="channel">@bk_OfferteSegrete</div>
         </div>
+
       </div>
     </body>
     </html>
