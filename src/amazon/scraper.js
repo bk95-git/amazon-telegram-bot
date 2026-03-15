@@ -6,20 +6,33 @@ async function estraiDatiDaLink(url) {
         args: ['--no-sandbox', '--disable-setuid-sandbox'] 
     });
     const page = await browser.newPage();
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+
+    // Simula browser italiano reale
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
+    
+    await page.setExtraHTTPHeaders({
+        'Accept-Language': 'it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+    });
+
+    await page.evaluateOnNewDocument(() => {
+        Object.defineProperty(navigator, 'language', { get: () => 'it-IT' });
+        Object.defineProperty(navigator, 'languages', { get: () => ['it-IT', 'it'] });
+    });
 
     try {
         await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
         await page.waitForSelector('#productTitle', { timeout: 10000 });
 
-     // Aspetta che i prezzi siano caricati
-     await page.waitForSelector('.a-price', { timeout: 10000 }).catch(() => {
-     console.log('⚠️ Selettore .a-price non trovato, continuo comunque');
-});
+        // Aspetta che i prezzi siano caricati
+        await page.waitForSelector('.a-price', { timeout: 10000 }).catch(() => {
+            console.log('⚠️ Selettore .a-price non trovato, continuo comunque');
+        });
 
-// Pausa extra per JavaScript dinamico di Amazon
-await new Promise(r => setTimeout(r, 6000));
-        // DEBUG TEMPORANEO - vediamo cosa vede il bot sulla pagina
+        // Pausa extra per JavaScript dinamico di Amazon
+        await new Promise(r => setTimeout(r, 6000));
+
+        // DEBUG - vediamo cosa vede il bot
         const htmlDebug = await page.evaluate(() => {
             const risultati = [];
             document.querySelectorAll('span, div, p, td').forEach(el => {
@@ -59,12 +72,15 @@ await new Promise(r => setTimeout(r, 6000));
             // ── PREZZO ATTUALE ──────────────────────────────────────
             let prezzo = null;
 
+            // Metodo 1: intero + frazione
             const intero = document.querySelector('.a-price-whole')?.textContent.replace(/[.,\s]/g, '');
             const frazione = document.querySelector('.a-price-fraction')?.textContent?.replace(/[^\d]/g, '');
             if (intero && frazione) prezzo = parseFloat(intero + '.' + frazione);
 
+            // Metodo 2: buybox
             if (!prezzo) prezzo = parsePrice(document.querySelector('#price_inside_buybox')?.textContent);
 
+            // Metodo 3: offscreen
             if (!prezzo) {
                 const offscreen = document.querySelector('#corePriceDisplay_desktop_feature_div .a-price:not(.a-text-price) .a-offscreen');
                 if (offscreen) prezzo = parsePrice(offscreen.textContent);
@@ -73,6 +89,7 @@ await new Promise(r => setTimeout(r, 6000));
             // ── PREZZO ORIGINALE ────────────────────────────────────
             let prezzoOriginale = null;
 
+            // Metodo 1: selettori CSS classici
             const selettoriOriginale = [
                 '#corePriceDisplay_desktop_feature_div .a-price.a-text-price span.a-offscreen',
                 '#corePriceDisplay_desktop_feature_div .basisPrice span.a-offscreen',
@@ -97,7 +114,7 @@ await new Promise(r => setTimeout(r, 6000));
                 if (prezzoOriginale) break;
             }
 
-            // Metodo testo: "Prezzo più basso ultimi 30gg", "Era:", "Prezzo consigliato"
+            // Metodo 2: testo "Prezzo più basso ultimi 30gg", "Era:", ecc.
             if (!prezzoOriginale) {
                 const tuttiGliElementi = document.querySelectorAll('span, p, td, div');
                 for (const el of tuttiGliElementi) {
@@ -124,7 +141,7 @@ await new Promise(r => setTimeout(r, 6000));
                 }
             }
 
-            // Metodo badge sconto %
+            // Metodo 3: badge sconto %
             let scontoPercentuale = null;
             const selettoriBadge = [
                 '.savingsPercentage',
