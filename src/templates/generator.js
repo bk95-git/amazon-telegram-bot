@@ -118,7 +118,7 @@ async function generaTemplate(offerta, èErrore) {
     <body>
       <div class="container">
         <div class="badge">
-          ${èErrore ? '🔥 PROBABILE ERRORE 🔥' : '⚡ OFFERTA SPECIALE ⚡'}
+          ${èErrore ? '🔥 PROBABILE ERRORE 🔥' : '🌸 OFFERTA DI PRIMAVERA 🌸'}
         </div>
         
         <div class="image-box">
