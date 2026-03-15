@@ -11,6 +11,7 @@ async function processaProssimoLink() {
             console.log('📭 Nessun link disponibile nel foglio');
             return false;
         }
+
         const link = risultato.link;
         console.log(`🔗 Elaboro: ${link}`);
         const dati = await estraiDatiDaLink(link);
@@ -23,13 +24,11 @@ async function processaProssimoLink() {
             return false;
         }
 
-        // Controllo validità prezzo originale
         if (!dati.prezzoOriginale || dati.prezzoOriginale <= dati.prezzo) {
-    console.log(`⛔ Nessuno sconto reale trovato per questo prodotto, salto`);
-    risultato.row.set('Pubblicato', 'NO_SCONTO');
-    await risultato.row.save();
-    return false;
-}
+            console.log(`⛔ Nessuno sconto reale trovato per questo prodotto, salto`);
+            risultato.row.set('Pubblicato', 'NO_SCONTO');
+            await risultato.row.save();
+            return false;
         }
 
         const offerta = {
@@ -42,8 +41,10 @@ async function processaProssimoLink() {
             immagine: dati.immagine,
             categoria: 'Manuale'
         };
+
         const èErrore = dati.sconto > 60;
         const successo = await pubblicaOfferta(offerta, èErrore);
+
         if (successo) {
             console.log(`✅ Pubblicato: ${dati.titolo.substring(0, 50)}...`);
             await segnaComePubblicato(risultato.row);
