@@ -21,7 +21,11 @@ app.get('/pubblica', async (req, res) => {
     catch (error) { res.status(500).json({ errore: error.message }); }
 });
 
-// ✅ Prima inizializza il bot, poi avvia il server
+app.get('/pubblica-prioritaria', async (req, res) => {
+    try { const risultato = await processaProssimoLink(true); res.json({ successo: risultato }); }
+    catch (error) { res.status(500).json({ errore: error.message }); }
+});
+
 async function avvia() {
     try {
         await bot.init();
@@ -49,9 +53,16 @@ async function avvia() {
             await processaProssimoLink();
         });
 
+        // Pubblica ogni 2 ore tra le 8:00 e le 22:00
         cron.schedule('0 8-22/2 * * *', async () => {
             console.log(`⏰ Esecuzione programmata delle ${new Date().getHours()}:00`);
             await processaProssimoLink();
+        }, { timezone: 'Europe/Rome' });
+
+        // Controlla prioritarie ogni 15 minuti
+        cron.schedule('*/15 * * * *', async () => {
+            console.log('🔍 Controllo offerte prioritarie...');
+            await processaProssimoLink(true);
         }, { timezone: 'Europe/Rome' });
 
         setInterval(() => console.log('💓 Keepalive', new Date().toISOString()), 60000);

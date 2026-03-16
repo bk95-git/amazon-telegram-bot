@@ -1,7 +1,7 @@
 const { GoogleSpreadsheet } = require('google-spreadsheet');
 const { JWT } = require('google-auth-library');
 
-async function caricaLinkDaSheets() {
+async function caricaLinkDaSheets(soloPrioritarie = false) {
     try {
         console.log('📊 Leggo Google Sheets...');
 
@@ -18,12 +18,30 @@ async function caricaLinkDaSheets() {
         const rows = await sheet.getRows();
         console.log(`📄 Trovate ${rows.length} righe nel foglio`);
 
+        // Prima cerca sempre le prioritarie
+        for (const row of rows) {
+            const pubblicato = row.get('Pubblicato');
+            const link = row.get('Link');
+            const priorita = row.get('Priorità');
+            if (pubblicato !== 'SI' && link && priorita === 'SI') {
+                console.log(`🚨 Trovata offerta PRIORITARIA: ${link}`);
+                return { link, row, prioritaria: true };
+            }
+        }
+
+        // Se cerco solo prioritarie e non ce ne sono, esco
+        if (soloPrioritarie) {
+            console.log('📭 Nessuna offerta prioritaria');
+            return null;
+        }
+
+        // Altrimenti prendi la prima normale
         for (const row of rows) {
             const pubblicato = row.get('Pubblicato');
             const link = row.get('Link');
             if (pubblicato !== 'SI' && link) {
                 console.log(`✅ Trovato link da pubblicare: ${link}`);
-                return { link, row };
+                return { link, row, prioritaria: false };
             }
         }
 

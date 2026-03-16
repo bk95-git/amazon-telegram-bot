@@ -3,13 +3,17 @@ const { estraiDatiDaLink } = require('./src/amazon/scraper');
 const { pubblicaOfferta } = require('./src/telegram/bot');
 const { caricaLinkDaSheets, segnaComePubblicato } = require('./src/sheets/reader');
 
-async function processaProssimoLink() {
+async function processaProssimoLink(soloPrioritarie = false) {
     console.log('🔄 Controllo prossimo link da Google Sheets...');
     try {
-        const risultato = await caricaLinkDaSheets();
+        const risultato = await caricaLinkDaSheets(soloPrioritarie);
         if (!risultato || !risultato.link) {
             console.log('📭 Nessun link disponibile nel foglio');
             return false;
+        }
+
+        if (risultato.prioritaria) {
+            console.log('🚨 Elaboro offerta PRIORITARIA');
         }
 
         const link = risultato.link;
@@ -31,18 +35,21 @@ async function processaProssimoLink() {
             return false;
         }
 
+        // Calcola sempre lo sconto dai prezzi reali
+        const scontoReale = Math.round(((dati.prezzoOriginale - dati.prezzo) / dati.prezzoOriginale) * 100);
+
         const offerta = {
             asin: dati.asin,
             titolo: dati.titolo,
             prezzo: dati.prezzo,
             prezzoOriginale: dati.prezzoOriginale,
-            sconto: dati.sconto,
+            sconto: scontoReale,
             link: link + `?tag=${process.env.AMAZON_PARTNER_TAG}`,
             immagine: dati.immagine,
             categoria: 'Manuale'
         };
 
-        const èErrore = dati.sconto > 60;
+        const èErrore = scontoReale > 90;
         const successo = await pubblicaOfferta(offerta, èErrore);
 
         if (successo) {
