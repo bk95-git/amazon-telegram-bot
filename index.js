@@ -60,7 +60,7 @@ async function avvia() {
         }, { timezone: 'Europe/Rome' });
 
         // Controlla prioritarie ogni 15 minuti
-        cron.schedule('*/15 * * * *', async () => {
+        cron.schedule('*/5 * * * *', async () => {
             console.log('🔍 Controllo offerte prioritarie...');
             await processaProssimoLink(true);
         }, { timezone: 'Europe/Rome' });
