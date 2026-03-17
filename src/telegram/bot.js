@@ -40,6 +40,7 @@ ${offerta.titolo}
 ${rigaCoupon}🎯 SCONTO: <b>${offerta.sconto}%</b>
 
 <a href="${offerta.link}">🛒 ACQUISTA SU AMAZON</a>
+
 <a href="${linkWhatsapp}">📲 Condividi su WhatsApp</a>
 
 #offerte #amazon ${tipoOfferta === 'errore' ? '#erroreprezzo' : ''}
