@@ -108,9 +108,16 @@ async function estraiDatiDaLink(url) {
                 const el = document.querySelector(sel);
                 if (el) {
                     const val = parsePrice(el.textContent);
-                    if (val && val > 1 && val < 5000 && prezzo && val < prezzo) {
-                        prezzoCoupon = val;
-                        break;
+                    if (val && val > 1 && val < 5000) {
+                        // È un prezzo finale o uno sconto?
+                        if (prezzo && val > prezzo / 2) {
+                            // È un prezzo finale (es. 26€ su 32,50€)
+                            prezzoCoupon = val;
+                        } else if (prezzo && val < prezzo / 2) {
+                            // È un valore sconto (es. 6,50€ da sottrarre)
+                            prezzoCoupon = Math.round((prezzo - val) * 100) / 100;
+                        }
+                        if (prezzoCoupon) break;
                     }
                 }
             }
@@ -124,27 +131,30 @@ async function estraiDatiDaLink(url) {
                         testo.length < 150 &&
                         (testo.toLowerCase().includes('prezzo del coupon') ||
                          testo.toLowerCase().includes('coupon price') ||
-                         testo.toLowerCase().includes('con coupon'))
+                         testo.toLowerCase().includes('con coupon') ||
+                         testo.toLowerCase().includes('coupon:'))
                     ) {
-                        // Cerca prezzo nel genitore
                         const parent = el.parentElement;
                         const testoParent = parent?.textContent || '';
                         const matches = [...testoParent.matchAll(/(\d{1,4}[,\.]\d{2})/g)];
                         for (const match of matches) {
                             const val = parsePrice(match[1]);
-                            // Il prezzo coupon deve essere minore del prezzo attuale
-                            if (val && val > 1 && val < 5000 && prezzo && val < prezzo) {
-                                prezzoCoupon = val;
-                                break;
+                            if (val && val > 1 && val < 5000) {
+                                if (prezzo && val > prezzo / 2 && val < prezzo) {
+                                    // È un prezzo finale (es. 26€)
+                                    prezzoCoupon = val;
+                                    console.log('🎟️ Coupon prezzo finale:', prezzoCoupon);
+                                } else if (prezzo && val <= prezzo / 2) {
+                                    // È un valore sconto (es. 6,50€)
+                                    prezzoCoupon = Math.round((prezzo - val) * 100) / 100;
+                                    console.log('🎟️ Coupon sconto sottratto, prezzo finale:', prezzoCoupon);
+                                }
+                                if (prezzoCoupon) break;
                             }
                         }
                         if (prezzoCoupon) break;
                     }
                 }
-            }
-
-            if (prezzoCoupon) {
-                console.log('🎟️ Prezzo coupon trovato:', prezzoCoupon);
             }
 
             // ── PREZZO ORIGINALE ────────────────────────────────────
