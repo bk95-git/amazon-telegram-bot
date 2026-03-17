@@ -7,7 +7,6 @@ async function estraiDatiDaLink(url) {
     });
     const page = await browser.newPage();
 
-    // Simula browser italiano reale
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
     
     await page.setExtraHTTPHeaders({
@@ -24,15 +23,12 @@ async function estraiDatiDaLink(url) {
         await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
         await page.waitForSelector('#productTitle', { timeout: 10000 });
 
-        // Aspetta che i prezzi siano caricati
         await page.waitForSelector('.a-price', { timeout: 10000 }).catch(() => {
             console.log('⚠️ Selettore .a-price non trovato, continuo comunque');
         });
 
-        // Pausa extra per JavaScript dinamico di Amazon
         await new Promise(r => setTimeout(r, 6000));
 
-        // DEBUG - vediamo cosa vede il bot
         const htmlDebug = await page.evaluate(() => {
             const risultati = [];
             document.querySelectorAll('span, div, p, td').forEach(el => {
@@ -45,6 +41,8 @@ async function estraiDatiDaLink(url) {
                         t.includes('basso') ||
                         t.includes('consigliato') ||
                         t.includes('mediano') ||
+                        t.includes('coupon') ||
+                        t.includes('Coupon') ||
                         t.includes('Era') ||
                         t.includes('Was') ||
                         t.includes('List') ||
@@ -64,7 +62,7 @@ async function estraiDatiDaLink(url) {
                 return testo.includes('/ kg') || testo.includes('/kg') ||
                        testo.includes('/ l)') || testo.includes('/l)') ||
                        testo.includes('/ pz') || testo.includes('/ pezzo') ||
-                       testo.includes('/ 100');
+                       testo.includes('/ 100') || testo.includes('/100 ml');
             }
 
             function parsePrice(testo) {
@@ -81,24 +79,44 @@ async function estraiDatiDaLink(url) {
             // ── PREZZO ATTUALE ──────────────────────────────────────
             let prezzo = null;
 
-            // Metodo 1: intero + frazione
             const intero = document.querySelector('.a-price-whole')?.textContent.replace(/[.,\s]/g, '');
             const frazione = document.querySelector('.a-price-fraction')?.textContent?.replace(/[^\d]/g, '');
             if (intero && frazione) prezzo = parseFloat(intero + '.' + frazione);
 
-            // Metodo 2: buybox
             if (!prezzo) prezzo = parsePrice(document.querySelector('#price_inside_buybox')?.textContent);
 
-            // Metodo 3: offscreen
             if (!prezzo) {
                 const offscreen = document.querySelector('#corePriceDisplay_desktop_feature_div .a-price:not(.a-text-price) .a-offscreen');
                 if (offscreen) prezzo = parsePrice(offscreen.textContent);
             }
 
+            // ── PREZZO COUPON ───────────────────────────────────────
+            let prezzoCoupon = null;
+            const tuttiElementi = document.querySelectorAll('span, div, p, td, label');
+            for (const el of tuttiElementi) {
+                const testo = el.textContent.trim();
+                if (
+                    (testo.toLowerCase().includes('prezzo del coupon') ||
+                     testo.toLowerCase().includes('coupon price') ||
+                     testo.toLowerCase().includes('con coupon')) &&
+                    testo.match(/\d+[,\.]\d{2}/)
+                ) {
+                    const matches = [...testo.matchAll(/(\d{1,4}[,\.]\d{2})/g)];
+                    for (const match of matches) {
+                        const val = parsePrice(match[1]);
+                        if (val && val > 1 && val < 5000) {
+                            prezzoCoupon = val;
+                            console.log('🎟️ Prezzo coupon trovato:', val);
+                            break;
+                        }
+                    }
+                    if (prezzoCoupon) break;
+                }
+            }
+
             // ── PREZZO ORIGINALE ────────────────────────────────────
             let prezzoOriginale = null;
 
-            // Metodo 1: selettori CSS classici con controllo contesto
             const selettoriOriginale = [
                 '#corePriceDisplay_desktop_feature_div .a-price.a-text-price span.a-offscreen',
                 '#corePriceDisplay_desktop_feature_div .basisPrice span.a-offscreen',
@@ -114,7 +132,6 @@ async function estraiDatiDaLink(url) {
             for (const sel of selettoriOriginale) {
                 const elementi = document.querySelectorAll(sel);
                 for (const el of elementi) {
-                    // Controlla il contesto per escludere prezzi unitari
                     const testoContesto = (el.parentElement?.textContent || '') + 
                                           (el.parentElement?.parentElement?.textContent || '');
                     if (isPrezzUnitario(testoContesto)) continue;
@@ -128,16 +145,12 @@ async function estraiDatiDaLink(url) {
                 if (prezzoOriginale) break;
             }
 
-            // Metodo 2: testo "Prezzo consigliato", "Prezzo più basso ultimi 30gg", "Era:", ecc.
             if (!prezzoOriginale) {
                 const tuttiGliElementi = document.querySelectorAll('span, p, td, div');
                 for (const el of tuttiGliElementi) {
                     const testo = el.textContent.trim();
-
-                    // Ignora prezzi unitari
                     if (isPrezzUnitario(testo)) continue;
 
-                    // Priorità: prima "Prezzo consigliato", poi "30gg", poi altri
                     if (
                         testo.includes('Prezzo consigliato') ||
                         testo.includes('List Price') ||
@@ -161,7 +174,7 @@ async function estraiDatiDaLink(url) {
                 }
             }
 
-            // Metodo 3: badge sconto %
+            // Metodo badge sconto %
             let scontoPercentuale = null;
             const selettoriBadge = [
                 '.savingsPercentage',
@@ -184,15 +197,16 @@ async function estraiDatiDaLink(url) {
                 if (scontoPercentuale) break;
             }
 
-            // Calcola prezzo originale da sconto % se ancora null
             if (!prezzoOriginale && scontoPercentuale && prezzo) {
                 prezzoOriginale = Math.round((prezzo / (1 - scontoPercentuale / 100)) * 100) / 100;
             }
 
-            // Calcolo sconto SEMPRE dai prezzi reali
+            // Usa prezzo coupon come prezzo finale se disponibile
+            const prezzoFinale = prezzoCoupon || prezzo;
+
             let sconto = 0;
-            if (prezzoOriginale && prezzo && prezzoOriginale > prezzo) {
-                sconto = Math.round(((prezzoOriginale - prezzo) / prezzoOriginale) * 100);
+            if (prezzoOriginale && prezzoFinale && prezzoOriginale > prezzoFinale) {
+                sconto = Math.round(((prezzoOriginale - prezzoFinale) / prezzoOriginale) * 100);
             }
 
             const immagine = document.querySelector('#landingImage')?.src || 
@@ -205,7 +219,17 @@ async function estraiDatiDaLink(url) {
             const inStock = !disponibilita.toLowerCase().includes('non disponibile') && 
                             !disponibilita.toLowerCase().includes('esaurito');
 
-            return { titolo, prezzo, prezzoOriginale, sconto, immagine, asin, inStock };
+            return { 
+                titolo, 
+                prezzo: prezzoFinale, 
+                prezzoOriginale, 
+                sconto, 
+                immagine, 
+                asin, 
+                inStock,
+                hasCoupon: prezzoCoupon !== null,
+                prezzoPrimaCoupon: prezzo
+            };
         });
 
         await browser.close();

@@ -27,9 +27,7 @@ async function generaTemplate(offerta, tipoOfferta) {
           font-family: 'Arial', sans-serif;
           background: white;
         }
-        .container { 
-          padding: 30px; 
-        }
+        .container { padding: 30px; }
         .badge {
           background: ${process.env.COLORE_PRIMARIO || '#FFD700'};
           padding: 25px;
@@ -37,34 +35,45 @@ async function generaTemplate(offerta, tipoOfferta) {
           font-size: 44px;
           font-weight: bold;
           border-radius: 15px;
-          margin-bottom: 30px;
+          margin-bottom: 20px;
           font-family: 'Noto Color Emoji', 'Arial', sans-serif;
           letter-spacing: 1px;
         }
+        .coupon-badge {
+          background: #4CAF50;
+          color: white;
+          padding: 12px 20px;
+          text-align: center;
+          font-size: 28px;
+          font-weight: bold;
+          border-radius: 10px;
+          margin-bottom: 20px;
+          font-family: 'Noto Color Emoji', 'Arial', sans-serif;
+        }
         .image-box {
           text-align: center;
-          margin: 30px 0;
-          height: 450px;
+          margin: 20px 0;
+          height: 420px;
         }
         .image-box img {
           max-width: 600px;
-          max-height: 450px;
+          max-height: 420px;
           object-fit: contain;
         }
         .title {
-          font-size: 28px;
+          font-size: 26px;
           font-weight: bold;
           color: ${process.env.COLORE_SECONDARIO || '#003366'};
           text-align: center;
-          margin: 20px 0;
+          margin: 15px 0;
           line-height: 1.4;
           font-family: 'Arial', sans-serif;
         }
         .price-container {
           background: #F5F5F5;
-          padding: 35px 40px;
+          padding: 30px 40px;
           border-radius: 30px;
-          margin: 20px 0;
+          margin: 15px 0;
           display: flex;
           justify-content: center;
           align-items: center;
@@ -103,9 +112,9 @@ async function generaTemplate(offerta, tipoOfferta) {
         .footer {
           background: ${process.env.COLORE_SECONDARIO || '#003366'};
           color: white;
-          padding: 25px;
+          padding: 20px;
           text-align: center;
-          margin-top: 30px;
+          margin-top: 20px;
           border-radius: 15px;
         }
         .hashtags {
@@ -122,7 +131,7 @@ async function generaTemplate(offerta, tipoOfferta) {
         .placeholder {
           background: #eee;
           width: 600px;
-          height: 450px;
+          height: 420px;
           margin: 0 auto;
           display: flex;
           align-items: center;
@@ -138,7 +147,9 @@ async function generaTemplate(offerta, tipoOfferta) {
       <div class="container">
 
         <div class="badge">${badgeTesto}</div>
-        
+
+        ${offerta.hasCoupon ? `<div class="coupon-badge">📍 PREZZO CON COUPON</div>` : ''}
+
         <div class="image-box">
           ${offerta.immagine ? 
             `<img src="${offerta.immagine}" alt="prodotto">` : 

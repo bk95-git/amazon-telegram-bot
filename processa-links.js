@@ -19,7 +19,7 @@ async function processaProssimoLink(soloPrioritarie = false) {
         const link = risultato.link;
         console.log(`🔗 Elaboro: ${link}`);
         const dati = await estraiDatiDaLink(link);
-        console.log('📦 DATI APPENA ESTRATTI (in processa-links):', JSON.stringify(dati, null, 2));
+        console.log('📦 DATI APPENA ESTRATTI:', JSON.stringify(dati, null, 2));
 
         if (!dati || !dati.prezzo || !dati.inStock) {
             console.log(`❌ Dati non validi o prodotto non disponibile per ${link}`);
@@ -38,9 +38,17 @@ async function processaProssimoLink(soloPrioritarie = false) {
         // Calcola sempre lo sconto dai prezzi reali
         const scontoReale = Math.round(((dati.prezzoOriginale - dati.prezzo) / dati.prezzoOriginale) * 100);
 
-        // Tipo offerta basato sullo sconto
-        const tipoOfferta = scontoReale > 70 ? 'errore' :
-                            scontoReale >= 40 ? 'bomba' : 'convenienza';
+        // Logica badge
+        let tipoOfferta;
+        if (scontoReale > 70) {
+            tipoOfferta = 'errore';
+        } else if (scontoReale >= 40) {
+            tipoOfferta = 'bomba';
+        } else {
+            tipoOfferta = 'convenienza';
+        }
+
+        console.log(`🏷️ Tipo offerta: ${tipoOfferta} (sconto: ${scontoReale}%)`);
 
         const offerta = {
             asin: dati.asin,
@@ -50,7 +58,9 @@ async function processaProssimoLink(soloPrioritarie = false) {
             sconto: scontoReale,
             link: link + `?tag=${process.env.AMAZON_PARTNER_TAG}`,
             immagine: dati.immagine,
-            categoria: 'Manuale'
+            categoria: 'Manuale',
+            hasCoupon: dati.hasCoupon || false,
+            prezzoPrimaCoupon: dati.prezzoPrimaCoupon || null
         };
 
         const successo = await pubblicaOfferta(offerta, tipoOfferta);

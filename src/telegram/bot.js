@@ -7,12 +7,15 @@ async function pubblicaOfferta(offerta, tipoOfferta) {
     console.log('📦 DATI RICEVUTI in pubblicaOfferta:', JSON.stringify(offerta));
     try {
         console.log('📤 Pubblicazione su Telegram...');
+        const template = await generaTemplate(offerta, tipoOfferta);
 
         const badge = tipoOfferta === 'errore'      ? '🔥 PROBABILE ERRORE 🔥' :
                       tipoOfferta === 'bomba'        ? '💣 BOMBA!!!' :
                                                        '💥 PREZZO CONVENIENZA';
 
-        const template = await generaTemplate(offerta, tipoOfferta);
+        const rigaCoupon = offerta.hasCoupon 
+            ? `📍 <b>PREZZO CON COUPON</b> (prezzo normale: ${offerta.prezzoPrimaCoupon.toFixed(2).replace('.', ',')}€)\n`
+            : '';
 
         const caption = `
 <b>${badge}</b>
@@ -20,15 +23,15 @@ async function pubblicaOfferta(offerta, tipoOfferta) {
 ${offerta.titolo}
 
 💰 <b>${offerta.prezzo.toFixed(2).replace('.', ',')}€</b> invece di ${offerta.prezzoOriginale.toFixed(2).replace('.', ',')}€
-🎯 SCONTO: <b>${offerta.sconto}%</b>
+${rigaCoupon}🎯 SCONTO: <b>${offerta.sconto}%</b>
 
 <a href="${offerta.link}">🛒 ACQUISTA SU AMAZON</a>
 
 #offerte #amazon ${tipoOfferta === 'errore' ? '#erroreprezzo' : ''}
-        `;
+        `.trim();
 
         await bot.api.sendPhoto(process.env.TELEGRAM_CHANNEL_ID, new InputFile(template), {
-            caption: caption.trim(),
+            caption,
             parse_mode: 'HTML'
         });
 
