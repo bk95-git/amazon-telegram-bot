@@ -38,6 +38,10 @@ async function processaProssimoLink(soloPrioritarie = false) {
         // Calcola sempre lo sconto dai prezzi reali
         const scontoReale = Math.round(((dati.prezzoOriginale - dati.prezzo) / dati.prezzoOriginale) * 100);
 
+        // Tipo offerta basato sullo sconto
+        const tipoOfferta = scontoReale > 70 ? 'errore' :
+                            scontoReale >= 40 ? 'bomba' : 'convenienza';
+
         const offerta = {
             asin: dati.asin,
             titolo: dati.titolo,
@@ -49,8 +53,7 @@ async function processaProssimoLink(soloPrioritarie = false) {
             categoria: 'Manuale'
         };
 
-        const èErrore = scontoReale > 90;
-        const successo = await pubblicaOfferta(offerta, èErrore);
+        const successo = await pubblicaOfferta(offerta, tipoOfferta);
 
         if (successo) {
             console.log(`✅ Pubblicato: ${dati.titolo.substring(0, 50)}...`);

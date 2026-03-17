@@ -1,6 +1,6 @@
 const puppeteer = require('puppeteer');
 
-async function generaTemplate(offerta, èErrore) {
+async function generaTemplate(offerta, tipoOfferta) {
   console.log('🎨 Generazione template...');
   
   const browser = await puppeteer.launch({ 
@@ -8,6 +8,10 @@ async function generaTemplate(offerta, èErrore) {
   });
   
   const page = await browser.newPage();
+
+  const badgeTesto = tipoOfferta === 'errore'  ? '🔥 PROBABILE ERRORE 🔥' :
+                     tipoOfferta === 'bomba'   ? '💣 BOMBA!!!' :
+                                                 '💥 PREZZO CONVENIENZA';
 
   const html = `
     <!DOCTYPE html>
@@ -133,9 +137,7 @@ async function generaTemplate(offerta, èErrore) {
     <body>
       <div class="container">
 
-        <div class="badge">
-          ${èErrore ? '⚠️ PROBABILE ERRORE ⚠️' : '🌸 OFFERTA DI PRIMAVERA 🌸'}
-        </div>
+        <div class="badge">${badgeTesto}</div>
         
         <div class="image-box">
           ${offerta.immagine ? 
@@ -153,7 +155,7 @@ async function generaTemplate(offerta, èErrore) {
         </div>
         
         <div class="footer">
-          <div class="hashtags">#offerte #amazon ${èErrore ? '#erroreprezzo' : ''}</div>
+          <div class="hashtags">#offerte #amazon ${tipoOfferta === 'errore' ? '#erroreprezzo' : ''}</div>
           <div class="channel">@bk_OfferteSegrete</div>
         </div>
 
