@@ -31,7 +31,7 @@ async function estraiDatiDaLink(url) {
 
         const htmlDebug = await page.evaluate(() => {
             const risultati = [];
-            document.querySelectorAll('span, div, p, td').forEach(el => {
+            document.querySelectorAll('span, div, p, td, label').forEach(el => {
                 const t = el.textContent.trim();
                 if (
                     t.match(/\d+[,\.]\d{2}/) &&
@@ -41,8 +41,7 @@ async function estraiDatiDaLink(url) {
                         t.includes('basso') ||
                         t.includes('consigliato') ||
                         t.includes('mediano') ||
-                        t.includes('coupon') ||
-                        t.includes('Coupon') ||
+                        t.toLowerCase().includes('coupon') ||
                         t.includes('Era') ||
                         t.includes('Was') ||
                         t.includes('List') ||
@@ -92,26 +91,60 @@ async function estraiDatiDaLink(url) {
 
             // ── PREZZO COUPON ───────────────────────────────────────
             let prezzoCoupon = null;
-            const tuttiElementi = document.querySelectorAll('span, div, p, td, label');
-            for (const el of tuttiElementi) {
-                const testo = el.textContent.trim();
-                if (
-                    (testo.toLowerCase().includes('prezzo del coupon') ||
-                     testo.toLowerCase().includes('coupon price') ||
-                     testo.toLowerCase().includes('con coupon')) &&
-                    testo.match(/\d+[,\.]\d{2}/)
-                ) {
-                    const matches = [...testo.matchAll(/(\d{1,4}[,\.]\d{2})/g)];
-                    for (const match of matches) {
-                        const val = parsePrice(match[1]);
-                        if (val && val > 1 && val < 5000) {
-                            prezzoCoupon = val;
-                            console.log('🎟️ Prezzo coupon trovato:', val);
-                            break;
-                        }
+
+            // Metodo 1: selettori specifici box coupon Amazon
+            const selettoriCoupon = [
+                '#couponBadgeRegularVpc',
+                '#vpcButton',
+                '.couponBadge',
+                '#coupon-badge',
+                'label[id*="coupon"]',
+                'span[id*="coupon"]',
+                '#apex_offerDisplay_desktop [class*="coupon"]',
+                '#corePrice_desktop [class*="coupon"]'
+            ];
+
+            for (const sel of selettoriCoupon) {
+                const el = document.querySelector(sel);
+                if (el) {
+                    const val = parsePrice(el.textContent);
+                    if (val && val > 1 && val < 5000 && prezzo && val < prezzo) {
+                        prezzoCoupon = val;
+                        break;
                     }
-                    if (prezzoCoupon) break;
                 }
+            }
+
+            // Metodo 2: cerca nel testo della pagina
+            if (!prezzoCoupon) {
+                const tuttiElementi = document.querySelectorAll('span, div, p, td, label');
+                for (const el of tuttiElementi) {
+                    const testo = el.textContent.trim();
+                    if (
+                        testo.length < 150 &&
+                        (testo.toLowerCase().includes('prezzo del coupon') ||
+                         testo.toLowerCase().includes('coupon price') ||
+                         testo.toLowerCase().includes('con coupon'))
+                    ) {
+                        // Cerca prezzo nel genitore
+                        const parent = el.parentElement;
+                        const testoParent = parent?.textContent || '';
+                        const matches = [...testoParent.matchAll(/(\d{1,4}[,\.]\d{2})/g)];
+                        for (const match of matches) {
+                            const val = parsePrice(match[1]);
+                            // Il prezzo coupon deve essere minore del prezzo attuale
+                            if (val && val > 1 && val < 5000 && prezzo && val < prezzo) {
+                                prezzoCoupon = val;
+                                break;
+                            }
+                        }
+                        if (prezzoCoupon) break;
+                    }
+                }
+            }
+
+            if (prezzoCoupon) {
+                console.log('🎟️ Prezzo coupon trovato:', prezzoCoupon);
             }
 
             // ── PREZZO ORIGINALE ────────────────────────────────────
@@ -221,7 +254,7 @@ async function estraiDatiDaLink(url) {
 
             return { 
                 titolo, 
-                prezzo: prezzoFinale, 
+                prezzo: prezzoFinale,
                 prezzoOriginale, 
                 sconto, 
                 immagine, 
