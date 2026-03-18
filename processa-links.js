@@ -2,6 +2,7 @@ require('dotenv').config();
 const { estraiDatiDaLink } = require('./src/amazon/scraper');
 const { pubblicaOfferta } = require('./src/telegram/bot');
 const { caricaLinkDaSheets, segnaComePubblicato } = require('./src/sheets/reader');
+const { pubblicaSuInstagram } = require('./src/instagram/poster');
 
 async function processaProssimoLink(soloPrioritarie = false) {
     console.log('🔄 Controllo prossimo link da Google Sheets...');
@@ -63,14 +64,19 @@ async function processaProssimoLink(soloPrioritarie = false) {
             prezzoPrimaCoupon: dati.prezzoPrimaCoupon || null
         };
 
-        const successo = await pubblicaOfferta(offerta, tipoOfferta);
+        // Pubblica su Telegram
+        const successoTelegram = await pubblicaOfferta(offerta, tipoOfferta);
 
-        if (successo) {
-            console.log(`✅ Pubblicato: ${dati.titolo.substring(0, 50)}...`);
+        if (successoTelegram) {
+            console.log(`✅ Pubblicato su Telegram: ${dati.titolo.substring(0, 50)}...`);
+            
+            // Pubblica su Instagram
+            await pubblicaSuInstagram(offerta, tipoOfferta);
+
             await segnaComePubblicato(risultato.row);
             return true;
         } else {
-            console.log(`❌ Pubblicazione fallita per ${link}`);
+            console.log(`❌ Pubblicazione Telegram fallita per ${link}`);
             risultato.row.set('Pubblicato', 'ERRORE');
             await risultato.row.save();
             return false;
