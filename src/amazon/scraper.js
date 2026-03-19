@@ -20,8 +20,15 @@ async function estraiDatiDaLink(url) {
     });
 
     try {
-        await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 });
-        await page.waitForSelector('#productTitle', { timeout: 10000 });
+        // Semplifica il link estraendo solo l'ASIN
+        const asinMatch = url.match(/\/dp\/([A-Z0-9]{10})/);
+        const urlPulito = asinMatch 
+            ? `https://www.amazon.it/dp/${asinMatch[1]}` 
+            : url;
+        console.log(`🔗 URL semplificato: ${urlPulito}`);
+
+        await page.goto(urlPulito, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await page.waitForSelector('#productTitle', { timeout: 15000 });
 
         await page.waitForSelector('.a-price', { timeout: 10000 }).catch(() => {
             console.log('⚠️ Selettore .a-price non trovato, continuo comunque');
@@ -92,7 +99,6 @@ async function estraiDatiDaLink(url) {
             // ── PREZZO COUPON ───────────────────────────────────────
             let prezzoCoupon = null;
 
-            // Metodo 1: selettori specifici box coupon Amazon
             const selettoriCoupon = [
                 '#couponBadgeRegularVpc',
                 '#vpcButton',
@@ -109,12 +115,9 @@ async function estraiDatiDaLink(url) {
                 if (el) {
                     const val = parsePrice(el.textContent);
                     if (val && val > 1 && val < 5000) {
-                        // È un prezzo finale o uno sconto?
-                        if (prezzo && val > prezzo / 2) {
-                            // È un prezzo finale (es. 26€ su 32,50€)
+                        if (prezzo && val > prezzo / 2 && val < prezzo) {
                             prezzoCoupon = val;
-                        } else if (prezzo && val < prezzo / 2) {
-                            // È un valore sconto (es. 6,50€ da sottrarre)
+                        } else if (prezzo && val <= prezzo / 2) {
                             prezzoCoupon = Math.round((prezzo - val) * 100) / 100;
                         }
                         if (prezzoCoupon) break;
@@ -122,7 +125,6 @@ async function estraiDatiDaLink(url) {
                 }
             }
 
-            // Metodo 2: cerca nel testo della pagina
             if (!prezzoCoupon) {
                 const tuttiElementi = document.querySelectorAll('span, div, p, td, label');
                 for (const el of tuttiElementi) {
@@ -141,13 +143,9 @@ async function estraiDatiDaLink(url) {
                             const val = parsePrice(match[1]);
                             if (val && val > 1 && val < 5000) {
                                 if (prezzo && val > prezzo / 2 && val < prezzo) {
-                                    // È un prezzo finale (es. 26€)
                                     prezzoCoupon = val;
-                                    console.log('🎟️ Coupon prezzo finale:', prezzoCoupon);
                                 } else if (prezzo && val <= prezzo / 2) {
-                                    // È un valore sconto (es. 6,50€)
                                     prezzoCoupon = Math.round((prezzo - val) * 100) / 100;
-                                    console.log('🎟️ Coupon sconto sottratto, prezzo finale:', prezzoCoupon);
                                 }
                                 if (prezzoCoupon) break;
                             }
@@ -155,6 +153,10 @@ async function estraiDatiDaLink(url) {
                         if (prezzoCoupon) break;
                     }
                 }
+            }
+
+            if (prezzoCoupon) {
+                console.log('🎟️ Prezzo coupon trovato:', prezzoCoupon);
             }
 
             // ── PREZZO ORIGINALE ────────────────────────────────────
@@ -244,7 +246,6 @@ async function estraiDatiDaLink(url) {
                 prezzoOriginale = Math.round((prezzo / (1 - scontoPercentuale / 100)) * 100) / 100;
             }
 
-            // Usa prezzo coupon come prezzo finale se disponibile
             const prezzoFinale = prezzoCoupon || prezzo;
 
             let sconto = 0;
