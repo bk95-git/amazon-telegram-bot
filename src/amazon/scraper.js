@@ -74,9 +74,21 @@ async function estraiDatiDaLink(url) {
             function parsePrice(testo) {
                 if (!testo) return null;
                 if (isPrezzUnitario(testo)) return null;
-                const pulito = testo.replace(/[^\d,\.]/g, '').trim();
-                const normalizzato = pulito.replace(/\.(?=\d{3})/g, '').replace(',', '.');
-                const match = normalizzato.match(/(\d+(?:\.\d+)?)/);
+
+                let pulito = testo.trim();
+
+                // Rimuove simboli valuta e spazi
+                pulito = pulito.replace(/[€$£\s]/g, '');
+
+                // Gestisce formato italiano con punto come migliaia: 3.000,00 → 3000.00
+                if (pulito.match(/\d{1,3}(\.\d{3})+(,\d{2})?/)) {
+                    pulito = pulito.replace(/\./g, '').replace(',', '.');
+                } else {
+                    // Formato normale: 3,00 o 3.00
+                    pulito = pulito.replace(/\.(?=\d{3})/g, '').replace(',', '.');
+                }
+
+                const match = pulito.match(/(\d+(?:\.\d+)?)/);
                 return match ? parseFloat(match[1]) : null;
             }
 
@@ -182,7 +194,7 @@ async function estraiDatiDaLink(url) {
                     if (isPrezzUnitario(testoContesto)) continue;
 
                     const val = parsePrice(el.textContent);
-                    if (val && val > 1 && val < 5000 && prezzo && val > prezzo) {
+                    if (val && val > 1 && val < 10000 && prezzo && val > prezzo) {
                         prezzoOriginale = val;
                         break;
                     }
@@ -209,7 +221,7 @@ async function estraiDatiDaLink(url) {
                         const matches = [...testo.matchAll(/(\d{1,4}[,\.]\d{2})/g)];
                         for (const match of matches) {
                             const val = parsePrice(match[1]);
-                            if (val && val > 1 && val < 5000 && prezzo && val > prezzo) {
+                            if (val && val > 1 && val < 10000 && prezzo && val > prezzo) {
                                 prezzoOriginale = val;
                                 break;
                             }
