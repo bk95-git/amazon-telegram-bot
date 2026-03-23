@@ -30,11 +30,21 @@ async function estraiDatiDaLink(url) {
         await page.goto(urlPulito, { waitUntil: 'domcontentloaded', timeout: 60000 });
         await page.waitForSelector('#productTitle', { timeout: 15000 });
 
-        await page.waitForSelector('.a-price', { timeout: 10000 }).catch(() => {
-            console.log('⚠️ Selettore .a-price non trovato, continuo comunque');
-        });
+        // Aspetta prezzi con retry
+        let prezziCaricati = false;
+        for (let i = 0; i < 3; i++) {
+            await new Promise(r => setTimeout(r, 5000));
+            prezziCaricati = await page.$('.a-price') !== null;
+            if (prezziCaricati) {
+                console.log(`✅ Prezzi caricati al tentativo ${i + 1}`);
+                break;
+            }
+            console.log(`⏳ Tentativo ${i + 1}/3: prezzi non ancora caricati, riprovo...`);
+        }
 
-        await new Promise(r => setTimeout(r, 6000));
+        if (!prezziCaricati) {
+            console.log('⚠️ Prezzi non caricati dopo 3 tentativi, continuo comunque');
+        }
 
         const htmlDebug = await page.evaluate(() => {
             const risultati = [];
@@ -76,15 +86,12 @@ async function estraiDatiDaLink(url) {
                 if (isPrezzUnitario(testo)) return null;
 
                 let pulito = testo.trim();
-
-                // Rimuove simboli valuta e spazi
                 pulito = pulito.replace(/[€$£\s]/g, '');
 
-                // Gestisce formato italiano con punto come migliaia: 3.000,00 → 3000.00
+                // Gestisce formato italiano: 3.000,00 → 3000.00
                 if (pulito.match(/\d{1,3}(\.\d{3})+(,\d{2})?/)) {
                     pulito = pulito.replace(/\./g, '').replace(',', '.');
                 } else {
-                    // Formato normale: 3,00 o 3.00
                     pulito = pulito.replace(/\.(?=\d{3})/g, '').replace(',', '.');
                 }
 
@@ -126,7 +133,7 @@ async function estraiDatiDaLink(url) {
                 const el = document.querySelector(sel);
                 if (el) {
                     const val = parsePrice(el.textContent);
-                    if (val && val > 1 && val < 5000) {
+                    if (val && val > 1 && val < 10000) {
                         if (prezzo && val > prezzo / 2 && val < prezzo) {
                             prezzoCoupon = val;
                         } else if (prezzo && val <= prezzo / 2) {
@@ -153,7 +160,7 @@ async function estraiDatiDaLink(url) {
                         const matches = [...testoParent.matchAll(/(\d{1,4}[,\.]\d{2})/g)];
                         for (const match of matches) {
                             const val = parsePrice(match[1]);
-                            if (val && val > 1 && val < 5000) {
+                            if (val && val > 1 && val < 10000) {
                                 if (prezzo && val > prezzo / 2 && val < prezzo) {
                                     prezzoCoupon = val;
                                 } else if (prezzo && val <= prezzo / 2) {
@@ -255,47 +262,4 @@ async function estraiDatiDaLink(url) {
             }
 
             if (!prezzoOriginale && scontoPercentuale && prezzo) {
-                prezzoOriginale = Math.round((prezzo / (1 - scontoPercentuale / 100)) * 100) / 100;
-            }
-
-            const prezzoFinale = prezzoCoupon || prezzo;
-
-            let sconto = 0;
-            if (prezzoOriginale && prezzoFinale && prezzoOriginale > prezzoFinale) {
-                sconto = Math.round(((prezzoOriginale - prezzoFinale) / prezzoOriginale) * 100);
-            }
-
-            const immagine = document.querySelector('#landingImage')?.src || 
-                             document.querySelector('#imgBlkFront')?.src || '';
-
-            const asin = document.querySelector('meta[name="asin"]')?.content || 
-                         window.location.pathname.match(/\/dp\/([A-Z0-9]{10})/)?.[1] || '';
-
-            const disponibilita = document.querySelector('#availability span')?.textContent.trim() || '';
-            const inStock = !disponibilita.toLowerCase().includes('non disponibile') && 
-                            !disponibilita.toLowerCase().includes('esaurito');
-
-            return { 
-                titolo, 
-                prezzo: prezzoFinale,
-                prezzoOriginale, 
-                sconto, 
-                immagine, 
-                asin, 
-                inStock,
-                hasCoupon: prezzoCoupon !== null,
-                prezzoPrimaCoupon: prezzo
-            };
-        });
-
-        await browser.close();
-        console.log('📦 Dati estratti:', JSON.stringify(dati, null, 2));
-        return dati;
-    } catch (error) {
-        console.error('❌ Errore scraping:', error.message);
-        await browser.close();
-        return null;
-    }
-}
-
-module.exports = { estraiDatiDaLink };
+                prezzoOriginal
