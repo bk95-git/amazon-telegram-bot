@@ -23,7 +23,13 @@ async function caricaLinkDaSheets(soloPrioritarie = false) {
             const pubblicato = row.get('Pubblicato');
             const link = row.get('Link');
             const priorita = row.get('Priorità');
-            if (pubblicato !== 'SI' && link && priorita === 'SI') {
+            if (
+                pubblicato !== 'SI' && 
+                pubblicato !== 'ERRORE' && 
+                pubblicato !== 'NO_SCONTO' && 
+                link && 
+                priorita === 'SI'
+            ) {
                 console.log(`🚨 Trovata offerta PRIORITARIA: ${link}`);
                 return { link, row, prioritaria: true };
             }
@@ -39,7 +45,12 @@ async function caricaLinkDaSheets(soloPrioritarie = false) {
         for (const row of rows) {
             const pubblicato = row.get('Pubblicato');
             const link = row.get('Link');
-            if (pubblicato !== 'SI' && link) {
+            if (
+                pubblicato !== 'SI' && 
+                pubblicato !== 'ERRORE' && 
+                pubblicato !== 'NO_SCONTO' && 
+                link
+            ) {
                 console.log(`✅ Trovato link da pubblicare: ${link}`);
                 return { link, row, prioritaria: false };
             }

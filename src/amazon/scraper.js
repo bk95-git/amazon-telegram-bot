@@ -135,8 +135,10 @@ async function estraiDatiDaLink(url) {
                     const val = parsePrice(el.textContent);
                     if (val && val > 1 && val < 10000) {
                         if (prezzo && val > prezzo / 2 && val < prezzo) {
+                            // È un prezzo finale (es. 737,56€)
                             prezzoCoupon = val;
                         } else if (prezzo && val <= prezzo / 2) {
+                            // È un valore sconto da sottrarre
                             prezzoCoupon = Math.round((prezzo - val) * 100) / 100;
                         }
                         if (prezzoCoupon) break;
@@ -238,6 +240,13 @@ async function estraiDatiDaLink(url) {
                 }
             }
 
+            // Se c'è il coupon ma non il prezzo originale barrato,
+            // usa il prezzo pieno come prezzo originale
+            if (!prezzoOriginale && prezzoCoupon && prezzo) {
+                prezzoOriginale = prezzo;
+                console.log('🎟️ Nessun prezzo barrato, uso prezzo pieno come originale:', prezzoOriginale);
+            }
+
             // Metodo badge sconto %
             let scontoPercentuale = null;
             const selettoriBadge = [
@@ -262,4 +271,47 @@ async function estraiDatiDaLink(url) {
             }
 
             if (!prezzoOriginale && scontoPercentuale && prezzo) {
-                prezzoOriginal
+                prezzoOriginale = Math.round((prezzo / (1 - scontoPercentuale / 100)) * 100) / 100;
+            }
+
+            const prezzoFinale = prezzoCoupon || prezzo;
+
+            let sconto = 0;
+            if (prezzoOriginale && prezzoFinale && prezzoOriginale > prezzoFinale) {
+                sconto = Math.round(((prezzoOriginale - prezzoFinale) / prezzoOriginale) * 100);
+            }
+
+            const immagine = document.querySelector('#landingImage')?.src || 
+                             document.querySelector('#imgBlkFront')?.src || '';
+
+            const asin = document.querySelector('meta[name="asin"]')?.content || 
+                         window.location.pathname.match(/\/dp\/([A-Z0-9]{10})/)?.[1] || '';
+
+            const disponibilita = document.querySelector('#availability span')?.textContent.trim() || '';
+            const inStock = !disponibilita.toLowerCase().includes('non disponibile') && 
+                            !disponibilita.toLowerCase().includes('esaurito');
+
+            return { 
+                titolo, 
+                prezzo: prezzoFinale,
+                prezzoOriginale, 
+                sconto, 
+                immagine, 
+                asin, 
+                inStock,
+                hasCoupon: prezzoCoupon !== null,
+                prezzoPrimaCoupon: prezzo
+            };
+        });
+
+        await browser.close();
+        console.log('📦 Dati estratti:', JSON.stringify(dati, null, 2));
+        return dati;
+    } catch (error) {
+        console.error('❌ Errore scraping:', error.message);
+        await browser.close();
+        return null;
+    }
+}
+
+module.exports = { estraiDatiDaLink };
