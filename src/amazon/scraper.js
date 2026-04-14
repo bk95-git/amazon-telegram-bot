@@ -59,6 +59,8 @@ async function estraiDatiDaLink(url) {
                         t.includes('consigliato') ||
                         t.includes('mediano') ||
                         t.toLowerCase().includes('coupon') ||
+                        t.toLowerCase().includes('checkout') ||
+                        t.toLowerCase().includes('check-out') ||
                         t.includes('Era') ||
                         t.includes('Was') ||
                         t.includes('List') ||
@@ -118,6 +120,7 @@ async function estraiDatiDaLink(url) {
             // ── PREZZO COUPON ───────────────────────────────────────
             let prezzoCoupon = null;
 
+            // Metodo 1: selettori specifici box coupon Amazon
             const selettoriCoupon = [
                 '#couponBadgeRegularVpc',
                 '#vpcButton',
@@ -135,10 +138,8 @@ async function estraiDatiDaLink(url) {
                     const val = parsePrice(el.textContent);
                     if (val && val > 1 && val < 10000) {
                         if (prezzo && val > prezzo / 2 && val < prezzo) {
-                            // È un prezzo finale (es. 737,56€)
                             prezzoCoupon = val;
                         } else if (prezzo && val <= prezzo / 2) {
-                            // È un valore sconto da sottrarre
                             prezzoCoupon = Math.round((prezzo - val) * 100) / 100;
                         }
                         if (prezzoCoupon) break;
@@ -146,6 +147,7 @@ async function estraiDatiDaLink(url) {
                 }
             }
 
+            // Metodo 2: cerca nel testo "prezzo del coupon"
             if (!prezzoCoupon) {
                 const tuttiElementi = document.querySelectorAll('span, div, p, td, label');
                 for (const el of tuttiElementi) {
@@ -172,6 +174,29 @@ async function estraiDatiDaLink(url) {
                             }
                         }
                         if (prezzoCoupon) break;
+                    }
+                }
+            }
+
+            // Metodo 3: "Risparmia X% al check-out"
+            if (!prezzoCoupon) {
+                const tuttiElementi = document.querySelectorAll('span, div, p, td, label, b');
+                for (const el of tuttiElementi) {
+                    const testo = el.textContent.trim();
+                    if (
+                        testo.toLowerCase().includes('risparmia') && 
+                        (testo.toLowerCase().includes('check-out') || 
+                         testo.toLowerCase().includes('checkout'))
+                    ) {
+                        const matchPct = testo.match(/(\d+)\s*%/);
+                        if (matchPct && prezzo) {
+                            const pct = parseInt(matchPct[1]);
+                            if (pct > 0 && pct < 100) {
+                                prezzoCoupon = Math.round(prezzo * (1 - pct / 100) * 100) / 100;
+                                console.log(`🛒 Sconto checkout ${pct}% trovato, prezzo finale: ${prezzoCoupon}`);
+                                break;
+                            }
+                        }
                     }
                 }
             }
